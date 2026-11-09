@@ -372,7 +372,7 @@
        ========================================================================== */
     .camera-world {
       position: relative; z-index: 10; width: 100vw; height: 100vh; overflow: hidden;
-      cursor: grab;
+      cursor: grab; touch-action: none;
     }
     .camera-world:active { cursor: grabbing; }
 
@@ -1235,9 +1235,27 @@
       .orb-arrow { display: none; }
     }
     @media (max-width: 820px) {
-      .spatial-layer { padding: var(--top-clearance, 116px) 64px 20px 14px; }
-      .pc-name { font-size: 26px; }
-      .pc-hero-val { font-size: 28px; }
+      .top-bar { top: 8px; left: 10px; right: 10px; row-gap: 5px; }
+      .top-bar > .island:first-child { order: 1; padding: 4px 10px; }
+      .top-bar > .island:last-child {
+        order: 2; width: 100%; max-width: calc(100vw - 20px); margin-left: 0;
+        overflow-x: auto; scrollbar-width: none; justify-content: flex-start; touch-action: pan-x;
+      }
+      .top-bar > .island:last-child::-webkit-scrollbar { display: none; }
+      .tree-nav-shell { order: 3; width: 100%; max-width: calc(100vw - 20px); touch-action: pan-x; }
+      .spatial-layer { padding: var(--top-clearance, 138px) 12px 62px 12px; }
+      .d-card, .p-card { width: calc(100vw - 28px); max-width: 92vw; height: 336px; padding: 20px 22px; border-radius: 24px; overflow: hidden; }
+      .d-card .sh-btn, .p-card .sh-btn { max-width: 100%; overflow: hidden; text-overflow: ellipsis; }
+      .ms-card { width: calc(100vw - 32px); max-width: 92vw; padding: 18px 20px; }
+      .pc-name { font-size: 24px; }
+      .pc-hero-val { font-size: 25px; }
+      .depth-rail {
+        top: auto; bottom: 10px; right: auto; left: 50%; transform: translateX(-50%);
+        flex-direction: row; align-items: center; gap: 10px; padding: 7px 14px; border-radius: 999px;
+        max-width: calc(100vw - 20px); overflow-x: auto; scrollbar-width: none; white-space: nowrap;
+      }
+      .depth-rail-sep { width: 1px; height: 14px; margin: 0 2px; }
+      .depth-node.active .depth-pip { height: 7px; width: 18px; }
       .studio-grid, .f-row2 { grid-template-columns: 1fr; }
     }
   </style>
@@ -10893,12 +10911,7 @@
     let _amberPulseClearTimer = null;
 
     function detectShouldUseMobileMode() {
-      const vw = window.innerWidth || document.documentElement.clientWidth || 1440;
-      if (vw < 768) return true;
-      if (vw <= 960 && window.matchMedia && window.matchMedia("(hover: none) and (pointer: coarse)").matches) {
-        return true;
-      }
-      return false;
+      return Boolean(window._yxForceSimpleMobile);
     }
 
     function ensureV19StylesAndDom() {
