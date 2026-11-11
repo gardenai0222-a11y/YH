@@ -3058,6 +3058,10 @@
   cursor: grabbing !important;
 }
 
+#spatialHudGrid {
+  transition: transform 0.72s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
 .spatial-layer {
   position: absolute;
   inset: 0;
@@ -3067,45 +3071,36 @@
   align-items: center;
   justify-content: center;
   gap: 8px;
-  transition: transform 0.56s cubic-bezier(0.19, 1, 0.22, 1), opacity 0.38s ease;
   will-change: transform, opacity;
+  backface-visibility: hidden;
 }
 
 .spatial-layer.at-surface {
   display: flex !important;
-  transform: translate3d(0, 0, 0) rotateX(0deg) scale(1);
-  opacity: 1 !important;
   visibility: visible !important;
   pointer-events: auto;
   z-index: 20;
 }
 
-.spatial-layer:not(.at-surface),
-.spatial-layer.above-surface,
-.spatial-layer.dived-past,
-.spatial-layer.below-surface {
+.spatial-layer.is-animating {
+  display: flex !important;
+  visibility: visible !important;
+  pointer-events: none !important;
+  z-index: 16;
+}
+
+.spatial-layer.is-animating * {
+  pointer-events: none !important;
+}
+
+.spatial-layer.is-parked,
+.spatial-layer.above-surface:not(.is-animating),
+.spatial-layer.dived-past:not(.is-animating),
+.spatial-layer.below-surface:not(.is-animating) {
   display: none !important;
-  opacity: 0 !important;
-  visibility: hidden !important;
+  opacity: 0;
   pointer-events: none !important;
   z-index: 1;
-}
-
-.spatial-layer.above-surface,
-.spatial-layer.dived-past {
-  transform: translate3d(0, -24vh, 180px) rotateX(8deg) scale(1.08);
-}
-
-.spatial-layer.below-surface {
-  transform: translate3d(0, 24vh, -240px) rotateX(-8deg) scale(0.88);
-}
-
-.spatial-layer:not(.at-surface) *,
-.spatial-layer.above-surface *,
-.spatial-layer.dived-past *,
-.spatial-layer.below-surface * {
-  pointer-events: none !important;
-  visibility: hidden !important;
 }
 
 /* ============================================================================
@@ -6064,7 +6059,7 @@
 
         <label style="display:flex; align-items:center; gap:7px; font-size:11.5px; color:var(--text-secondary); cursor:pointer; user-select:none;">
           <input type="checkbox" id="loginRememberCheck" checked style="accent-color:var(--brand);" />
-          在此瀏覽器記住登入狀態（僅儲存於本機瀏覽器）
+          在此瀏覽器記住登入狀態
         </label>
       </div>
 
@@ -6087,7 +6082,7 @@
               onkeydown="if(event.key==='Enter') submitGoogleGateLogin(false)" />
           </div>
           <div>
-            <label style="font-size:11px; font-weight:700; color:var(--text-secondary); display:block; margin-bottom:3px;">專屬 Gemini API 金鑰（選填，僅儲存於本機瀏覽器）</label>
+            <label style="font-size:11px; font-weight:700; color:var(--text-secondary); display:block; margin-bottom:3px;">專屬 Gemini API 金鑰（選填）</label>
             <input type="password" id="loginGeminiKeyInput" placeholder="選填：貼上個人 Gemini API 金鑰"
               style="width:100%; padding:7px 9px; border:1px solid var(--border-light); border-radius:6px; font-size:12px; background:#fff;" />
           </div>
@@ -6213,12 +6208,18 @@
       </div>
 
       <div class="top-actions">
+        <div class="pill-select" title="選擇電腦上的麥克風收音裝置（支援會議進行中即時切換）">
+          <span>麥克風:</span>
+          <select id="micDeviceSelect" onchange="onMicDeviceChange(this.value)" style="max-width:170px;">
+            <option value="">系統預設麥克風</option>
+          </select>
+        </div>
         <div class="pill-select" title="麥克風收音增益放大倍率">
           <span>增益:</span>
           <select id="micGainSelect" onchange="onMicGainChange()">
-            <option value="1.0" selected>1.0x</option>
-            <option value="1.5">1.5x</option>
-            <option value="2.0">2.0x</option>
+            <option value="1.0">1.0x</option>
+            <option value="1.5" selected>1.5x (推薦)</option>
+            <option value="2.0">2.0x (微弱放大)</option>
           </select>
         </div>
 
@@ -6281,7 +6282,7 @@
       </div>
 
       <div class="hardware-status-box">
-        <span id="apiQuotaBadge" onclick="openSettingsModal()" title="點擊設定個人 Gemini API 金鑰（金鑰僅儲存於您的本機瀏覽器，絕不寫死於檔案或上傳 GitHub）"
+        <span id="apiQuotaBadge" onclick="openSettingsModal()" title="點擊設定 Gemini API 金鑰"
           style="padding:2px 8px; border-radius:6px; background:var(--bg-subtle); border:1px solid var(--border-light); color:var(--text-secondary); font-family:Consolas,monospace; font-size:11px; cursor:pointer;">設定 AI 金鑰</span>
         <span id="hwStatusDot" class="status-dot"></span>
         <span id="hwStatusText" style="font-weight:700; color:var(--text-secondary);">系統待命</span>
@@ -6316,9 +6317,18 @@
                 onclick="detectSpeakersFromVideoScreen()" title="自動從 Google Meet / 視訊畫面辨識參與人員名牌並建立講者標籤">
                 AI 抓取畫面與會者姓名
               </button>
-              <button class="btn" style="font-size:12px; padding:5px 12px;" onclick="toggleVideoStage(false)">
-                隱藏視訊面板
+              <button class="btn" style="font-size:12px; padding:5px 12px;" onclick="if(window._spGoTranscriptCard) window._spGoTranscriptCard(); else toggleVideoStage(false);">
+                切換至完整逐字稿艙
               </button>
+            </div>
+            <div id="videoLiveSubtitleBox" style="margin-top:8px; padding:9px 12px; border-radius:10px; background:#F4F8F5; border:1px solid #C5D9CC; display:flex; flex-direction:column; gap:5px;">
+              <div style="display:flex; align-items:center; justify-content:space-between; gap:8px; font-size:11.5px; font-weight:700; color:#2F5D46;">
+                <span id="videoLiveMicSourceLabel">即時字幕與收音監控（說話當下即刻跳出逐字稿）</span>
+                <span id="videoLiveVolBadge" style="font-family:Consolas,monospace;">待命中</span>
+              </div>
+              <div id="videoLiveSubtitleFeed" style="font-size:12.5px; color:#191918; line-height:1.5; max-height:84px; overflow-y:auto;">
+                啟動錄影或錄音後，系統將在此同步顯示即時語音辨識與最新逐字稿段落。
+              </div>
             </div>
           </div>
         </div>
@@ -6690,11 +6700,11 @@
       <h3 style="font-size:15.5px; font-weight:800; margin-bottom:12px;">系統設定與自訂專有名詞詞庫</h3>
       <div style="margin-bottom:12px;">
         <div style="display:flex; align-items:center; justify-content:space-between; gap:8px; margin-bottom:4px;">
-          <label style="font-size:12px; font-weight:700;">Gemini API 金鑰（僅儲存於本機瀏覽器，零程式碼寫死）：</label>
+          <label style="font-size:12px; font-weight:700;">Gemini API 金鑰：</label>
           <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noopener" style="font-size:11px; color:var(--accent-green); font-weight:700; text-decoration:none;">免費取得金鑰 ↗</a>
         </div>
         <input type="password" id="apiKeyInput"
-          placeholder="貼上個人 Gemini API 金鑰（儲存於本機瀏覽器 localStorage，未填時自動啟用離線智慧引擎）"
+          placeholder="貼上個人 Gemini API 金鑰（選填，未填時自動啟用離線智慧引擎）"
           style="width:100%; padding:8px 10px; border:1px solid var(--border-strong); border-radius:var(--radius-sm); font-size:13px;" />
       </div>
       <div style="margin-bottom:14px;">
@@ -8090,14 +8100,18 @@
               </div>
               <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
                 <span style="font-size:12px; font-weight:700; color:#2F5D46; background:#E5EFE9; padding:3px 10px; border-radius:99px;">目前講者：${escapeHtml(currentSpeaker)}</span>
-                <button type="button" class="btn" style="padding:4px 11px; font-size:12px; font-weight:700; background:#2F5D46; color:#FFFFFF; border-color:#2F5D46;" onclick="flushPcmSliceToGemini(true, true)">✨ 立即分段產出逐字稿</button>
-                <button type="button" class="btn" style="padding:4px 11px; font-size:12px; font-weight:700; background:#FDECEB; color:#B42318; border-color:#F5C2BE;" onclick="stopAllRecording()">⏹ 結束錄音</button>
+                <button type="button" class="btn" style="padding:4px 11px; font-size:12px; font-weight:700; background:#2F5D46; color:#FFFFFF; border-color:#2F5D46;" onclick="flushPcmSliceToGemini(true, true)">立即分段產出逐字稿</button>
+                <button type="button" class="btn" style="padding:4px 11px; font-size:12px; font-weight:700; background:#FDECEB; color:#B42318; border-color:#F5C2BE;" onclick="stopAllRecording()">結束錄音</button>
               </div>
             </div>
             <div style="margin-top:12px; padding:11px 14px; background:#FFFFFF; border:1px solid #DCE7E0; border-radius:10px;">
-              <div style="display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:7px;">
-                <span style="font-size:12px; font-weight:700; color:#48564E;">🎙️ 麥克風即時收音強度與聲波動態</span>
+              <div style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:10px; margin-bottom:7px;">
+                <span style="font-size:12px; font-weight:700; color:#48564E;">收音來源：${escapeHtml(activeMicLabel || "系統預設麥克風")}</span>
                 <span id="liveCenterVolText" style="font-size:12px; font-weight:800; color:#2F5D46;">麥克風監聽中 (請開口說話) · 0%</span>
+              </div>
+              <div id="liveZeroVolDiagBox" style="display:none; margin-bottom:8px; padding:8px 11px; border-radius:8px; background:#FEF6EE; border:1px solid #F3D2B3; font-size:11.5px; color:#9A4B12; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:8px;">
+                <span>持續未偵測到音量 (0%)：請檢查筆電鍵盤麥克風靜音鍵（如 Fn+F9）或從右側切換其他麥克風裝置：</span>
+                <select id="inlineDiagMicSelect" onchange="onMicDeviceChange(this.value)" style="height:28px; border-radius:6px; border:1px solid #D9A577; padding:0 8px; font-size:11.5px; background:#FFFFFF; color:#191918;"></select>
               </div>
               <div style="display:flex; align-items:center; gap:14px;">
                 <div style="flex:1; height:10px; background:#EDF1EE; border-radius:99px; overflow:hidden;">
@@ -8131,10 +8145,10 @@
         return `
           <div id="liveCenterRetranslateBanner" style="padding:14px 18px; margin-bottom:12px; background:#F4F9F6; border:1.5px solid #B7CDBD; border-radius:12px; display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:10px;">
             <div>
-              <div style="font-size:13.5px; font-weight:800; color:#1E3A2B;">🔊 本場會議已錄製音軌，可立即執行 AI 原音逐字稿轉寫</div>
+              <div style="font-size:13.5px; font-weight:800; color:#1E3A2B;">本場會議已錄製音軌，可立即執行 AI 原音逐字稿轉寫</div>
               <div style="font-size:12px; color:#55625A; margin-top:2px;">點擊右側按鈕即可將上方播放器中的錄音自動放大音量並交由 AI 產出完整時間軸逐字稿</div>
             </div>
-            <button type="button" class="btn" style="padding:6px 14px; font-size:12.5px; font-weight:800; background:#2F5D46; color:#FFFFFF; border-color:#2F5D46;" onclick="runGeminiNativeAudioRetranslate()">✨ 立即從本場錄音生成逐字稿</button>
+            <button type="button" class="btn" style="padding:6px 14px; font-size:12.5px; font-weight:800; background:#2F5D46; color:#FFFFFF; border-color:#2F5D46;" onclick="runGeminiNativeAudioRetranslate()">立即從本場錄音生成逐字稿</button>
           </div>
         `;
       }
@@ -8144,6 +8158,7 @@
     // 獨立渲染正在說話跳字中的動態草稿卡片，完全不觸碰上方 #transcriptContainer，杜絕手動編輯焦點遺失與千段重繪卡頓！
     function renderLiveInterimDraft(skipEmptyRestore = false) {
       if (typeof syncFloatingCapsuleUI === 'function') syncFloatingCapsuleUI();
+      if (typeof syncVideoStageSubtitleStrip === 'function') syncVideoStageSubtitleStrip();
       const mount = document.getElementById('liveDraftMount');
       const container = document.getElementById('transcriptContainer');
       const livePreview = document.getElementById('liveCenterInterimPreview');
@@ -8469,10 +8484,12 @@
         displayStream.getTracks().forEach(t => { try { t.stop(); } catch (e) {} });
         displayStream = null;
       }
+      clearHiddenStreamPumps();
       if (audioContext && audioContext.state !== 'closed') {
         try { audioContext.close().catch(() => {}); } catch (e) {}
       }
       audioContext = null;
+      if (typeof clearHiddenStreamPumps === 'function') clearHiddenStreamPumps();
     }
 
     async function toggleAudioRecording() {
@@ -8483,35 +8500,177 @@
       }
     }
 
+    let selectedMicDeviceId = '';
+    let activeMicLabel = '';
+    let activeMixBusRef = null;
+    let activeMicSourceNode = null;
+    let zeroSignalSinceMs = 0;
+    let hiddenStreamPumpEls = [];
+
+    function attachHiddenStreamPump(stream) {
+      if (!stream || !stream.getAudioTracks || stream.getAudioTracks().length === 0) return;
+      try {
+        const a = document.createElement('audio');
+        a.muted = true;
+        a.volume = 0;
+        a.autoplay = true;
+        a.srcObject = stream;
+        const p = a.play();
+        if (p && typeof p.catch === 'function') p.catch(() => {});
+        hiddenStreamPumpEls.push(a);
+      } catch (e) {}
+    }
+
+    function clearHiddenStreamPumps() {
+      while (hiddenStreamPumpEls.length > 0) {
+        const a = hiddenStreamPumpEls.pop();
+        if (a) {
+          try { a.pause(); a.srcObject = null; } catch (e) {}
+        }
+      }
+    }
+
+    async function refreshAvailableMicDevices() {
+      if (!navigator.mediaDevices || typeof navigator.mediaDevices.enumerateDevices !== 'function') return [];
+      try {
+        const list = await navigator.mediaDevices.enumerateDevices();
+        const mics = list.filter(d => d && d.kind === 'audioinput');
+        const selects = [document.getElementById('micDeviceSelect'), document.getElementById('inlineDiagMicSelect')].filter(Boolean);
+        selects.forEach(sel => {
+          const prev = selectedMicDeviceId || sel.value || '';
+          let html = '<option value="">系統預設麥克風</option>';
+          mics.forEach((m, idx) => {
+            if (!m.deviceId || m.deviceId === 'default') return;
+            const lbl = m.label || ('麥克風裝置 #' + (idx + 1));
+            const selAttr = m.deviceId === prev ? ' selected' : '';
+            html += `<option value="${escapeHtml(m.deviceId)}"${selAttr}>${escapeHtml(lbl)}</option>`;
+          });
+          sel.innerHTML = html;
+        });
+        return mics;
+      } catch (e) {
+        return [];
+      }
+    }
+
+    function buildMicAudioConstraints(deviceIdOverride) {
+      const devId = (deviceIdOverride !== undefined ? deviceIdOverride : selectedMicDeviceId) || '';
+      const base = {
+        echoCancellation: true,
+        autoGainControl: true,
+        noiseSuppression: true
+      };
+      if (devId) base.deviceId = { exact: devId };
+      return base;
+    }
+
+    async function acquirePreferredMicStream() {
+      try {
+        const st = await navigator.mediaDevices.getUserMedia({ audio: buildMicAudioConstraints(), video: false });
+        await refreshAvailableMicDevices();
+        return st;
+      } catch (firstErr) {
+        if (selectedMicDeviceId) {
+          selectedMicDeviceId = '';
+          const stFallback = await navigator.mediaDevices.getUserMedia({ audio: buildMicAudioConstraints(''), video: false });
+          await refreshAvailableMicDevices();
+          return stFallback;
+        }
+        throw firstErr;
+      }
+    }
+
+    async function onMicDeviceChange(newDeviceId) {
+      selectedMicDeviceId = String(newDeviceId || '').trim();
+      const mainSel = document.getElementById('micDeviceSelect');
+      if (mainSel && mainSel.value !== selectedMicDeviceId) mainSel.value = selectedMicDeviceId;
+      if (!isRecording || !audioContext) {
+        showToast('已切換預設麥克風收音裝置');
+        return;
+      }
+      try {
+        const freshMic = await acquirePreferredMicStream();
+        if (micStream) {
+          micStream.getAudioTracks().forEach(t => { try { t.stop(); } catch (e) {} });
+        }
+        micStream = freshMic;
+        const trk = micStream.getAudioTracks()[0];
+        activeMicLabel = (trk && trk.label) ? trk.label : '已選取麥克風';
+        if (activeMicSourceNode) {
+          try { activeMicSourceNode.disconnect(); } catch (e) {}
+        }
+        attachHiddenStreamPump(micStream);
+        activeMicSourceNode = audioContext.createMediaStreamSource(micStream);
+        if (gainNode) {
+          activeMicSourceNode.connect(gainNode);
+        }
+        zeroSignalSinceMs = Date.now();
+        syncVideoStageSubtitleStrip(0);
+        showToast('已即時切換收音麥克風：' + activeMicLabel);
+      } catch (err) {
+        showToast('切換麥克風失敗：' + (err.message || '請確認裝置連線'));
+      }
+    }
+
+    function syncVideoStageSubtitleStrip(volPct) {
+      const srcLbl = document.getElementById('videoLiveMicSourceLabel');
+      const volBdg = document.getElementById('videoLiveVolBadge');
+      const feedEl = document.getElementById('videoLiveSubtitleFeed');
+      if (srcLbl && isRecording) {
+        const hasSys = Boolean(displayStream && displayStream.getAudioTracks().length > 0);
+        const hasMic = Boolean(micStream && micStream.getAudioTracks().length > 0);
+        if (!hasSys && !hasMic) {
+          srcLbl.innerText = '警告：目前未取得麥克風或系統音訊（請允許麥克風權限或重新分享並勾選分享音訊）';
+          srcLbl.style.color = '#B42318';
+        } else {
+          srcLbl.innerText = '即時收音與同步字幕 · ' + (hasSys && hasMic ? ('系統音訊 + ' + (activeMicLabel || '麥克風')) : (hasSys ? '螢幕系統音訊' : (activeMicLabel || '麥克風')));
+          srcLbl.style.color = '#2F5D46';
+        }
+      }
+      if (volBdg) {
+        if (!isRecording) volBdg.innerText = '待命中';
+        else if (typeof volPct === 'number') volBdg.innerText = '收音強度 ' + volPct + '%';
+      }
+      if (feedEl) {
+        const recent = transcriptSegments.slice(-3).map(s => `<div style="margin-bottom:2px;"><strong style="color:#2F5D46;">${escapeHtml(s.speaker)}：</strong>${escapeHtml(s.text)}</div>`).join('');
+        const draft = currentInterimText ? `<div style="color:#155EEF; font-weight:700;">${escapeHtml(currentSpeaker)}（說話中）：${escapeHtml(currentInterimText)}</div>` : '';
+        if (recent || draft) {
+          feedEl.innerHTML = recent + draft;
+          feedEl.scrollTop = feedEl.scrollHeight;
+        } else if (isRecording) {
+          feedEl.innerHTML = '<span style="color:#5A655E;">正在監聽語音中，開口說話即刻在此同步跳出逐字稿...</span>';
+        }
+      }
+    }
+
     async function startAudioRecording() {
       if (isRecording || isStartingRecording) return;
       isStartingRecording = true;
       let acquiredMic = null;
+      // 關鍵修正：在使用者點擊當下同步建立並喚醒 AudioContext，避免等待授權對話框後失去 User Gesture 導致 AudioContext 卡在 suspended (0% 靜音)！
+      const preUnlockedCtx = new (window.AudioContext || window.webkitAudioContext)();
+      try { preUnlockedCtx.resume(); } catch (e) {}
       try {
-        // 先取得麥克風授權，避免使用者按拒絕或快速連點時產生孤兒串流或誤清空既有會議畫面
-        acquiredMic = await navigator.mediaDevices.getUserMedia({
-          audio: {
-            echoCancellation: true,
-            autoGainControl: true,
-            noiseSuppression: true
-          }
-        });
+        acquiredMic = await acquirePreferredMicStream();
 
         cleanupDanglingMediaResources();
-        // 若當前會議已有錄音或錄影檔（例如剛錄完 TEST1），自動保留舊檔並開立新場次 ID，絕不覆蓋舊檔！
         ensureFreshSessionBeforeNewRecording('audio');
         const lockedSessionId = currentSessionId;
         activeRecordingSessionId = lockedSessionId;
         micStream = acquiredMic;
+        const micTrack = micStream.getAudioTracks()[0];
+        activeMicLabel = (micTrack && micTrack.label) ? micTrack.label : '預設麥克風';
 
-        const gainVal = parseFloat(document.getElementById('micGainSelect').value || '1.0');
-        audioContext = new (window.AudioContext || window.webkitAudioContext)();
+        const gainVal = parseFloat(document.getElementById('micGainSelect').value || '1.5');
+        audioContext = preUnlockedCtx;
         if (audioContext.state === 'suspended') {
           try { await audioContext.resume(); } catch (e) {}
         }
+        attachHiddenStreamPump(micStream);
         const micSource = audioContext.createMediaStreamSource(micStream);
+        activeMicSourceNode = micSource;
         gainNode = audioContext.createGain();
-        gainNode.gain.value = Math.max(1.25, gainVal * 1.35);
+        gainNode.gain.value = Math.max(1.4, gainVal * 1.45);
         micSource.connect(gainNode);
 
         analyserNode = audioContext.createAnalyser();
@@ -8564,6 +8723,9 @@
         startWebSpeechLive();
         showToast('已開始錄音，請對麥克風說話');
       } catch (err) {
+        if (preUnlockedCtx && preUnlockedCtx !== audioContext) {
+          try { preUnlockedCtx.close(); } catch (e) {}
+        }
         if (acquiredMic) {
           acquiredMic.getTracks().forEach(t => { try { t.stop(); } catch (e) {} });
         }
@@ -8590,8 +8752,10 @@
       closeModal('videoRecordModal');
       let acquiredDisplay = null;
       let acquiredMic = null;
+      // 關鍵修正：於點擊瞬間（進入螢幕分享挑選視窗前）即同步建立並解鎖 AudioContext，徹底修復挑選畫面超過 5 秒導致音軌 0% 靜音之問題！
+      const preUnlockedCtx = new (window.AudioContext || window.webkitAudioContext)();
+      try { preUnlockedCtx.resume(); } catch (e) {}
       try {
-        // 關鍵修正：先取得螢幕分享或視訊鏡頭授權，若使用者按「取消」，立即中止且 0 硬體軌跡洩漏、不清空當前會議！
         if (mode === 'screen') {
           acquiredDisplay = await navigator.mediaDevices.getDisplayMedia({
             video: { frameRate: 24 },
@@ -8603,30 +8767,29 @@
             systemAudio: 'include'
           });
           try {
-            acquiredMic = await navigator.mediaDevices.getUserMedia({
-              audio: { echoCancellation: true, autoGainControl: true, noiseSuppression: true },
-              video: false
-            });
+            acquiredMic = await acquirePreferredMicStream();
           } catch (micErr) {
             console.warn('Mic access warning:', micErr);
           }
         } else {
           acquiredMic = await navigator.mediaDevices.getUserMedia({
-            audio: { echoCancellation: true, autoGainControl: true, noiseSuppression: true },
+            audio: buildMicAudioConstraints(),
             video: { width: 1280, height: 720 }
           });
+          await refreshAvailableMicDevices();
         }
 
         cleanupDanglingMediaResources();
-        // 授權成功後才保護舊會議並建立新視訊場次 ID
         ensureFreshSessionBeforeNewRecording('video');
         const lockedSessionId = currentSessionId;
         activeRecordingSessionId = lockedSessionId;
         micStream = acquiredMic;
         displayStream = acquiredDisplay;
+        const vMicTrack = micStream && micStream.getAudioTracks()[0];
+        activeMicLabel = (vMicTrack && vMicTrack.label) ? vMicTrack.label : (micStream ? '預設麥克風' : '');
 
-        const gainVal = parseFloat(document.getElementById('micGainSelect').value || '1.0');
-        audioContext = new (window.AudioContext || window.webkitAudioContext)();
+        const gainVal = parseFloat(document.getElementById('micGainSelect').value || '1.5');
+        audioContext = preUnlockedCtx;
         if (audioContext.state === 'suspended') {
           try { await audioContext.resume(); } catch (e) {}
         }
@@ -8640,10 +8803,12 @@
         mixBus.connect(analyserNode);
         mixBus.connect(mixedAudioDest);
 
+        activeMixBusRef = mixBus;
         if (micStream && micStream.getAudioTracks().length > 0) {
           const micSource = audioContext.createMediaStreamSource(micStream);
+          activeMicSourceNode = micSource;
           gainNode = audioContext.createGain();
-          gainNode.gain.value = gainVal;
+          gainNode.gain.value = Math.max(1.4, gainVal * 1.45);
           micSource.connect(gainNode);
           gainNode.connect(mixBus);
         }
@@ -8654,6 +8819,7 @@
           videoTrack = displayStream.getVideoTracks()[0];
           if (displayStream.getAudioTracks().length > 0) {
             hasSystemAudio = true;
+            attachHiddenStreamPump(displayStream);
             const sysSource = audioContext.createMediaStreamSource(displayStream);
             sysSource.connect(mixBus);
           }
@@ -8726,12 +8892,19 @@
             }
           }, 4000);
         }
-        if (mode === 'screen' && !hasSystemAudio) {
-          showToast('注意：您未勾選「一併分享音訊」，目前僅錄製畫面與您的麥克風（若要錄 Google Meet 對方聲音請重選並勾選分享音訊）');
+        const hasMicAudio = Boolean(micStream && micStream.getAudioTracks().length > 0);
+        syncVideoStageSubtitleStrip(0);
+        if (!hasMicAudio && !hasSystemAudio) {
+          showToast('警告：未取得麥克風權限且未勾選「分享系統音訊」，目前沒有任何聲音輸入！請允許網址列左方麥克風權限或重選分享音訊');
+        } else if (mode === 'screen' && !hasSystemAudio) {
+          showToast('已啟動畫面與麥克風收音（若需同時錄下電腦播放的會議對方聲音，分享視窗時請勾選「一併分享系統音訊」）');
         } else {
-          showToast('已啟動同步錄影（含對方會議音訊 ＋ 您的麥克風 ＋ 螢幕畫面）');
+          showToast('已啟動同步錄影與即時轉寫（含系統音訊 ＋ 麥克風 ＋ 螢幕畫面）');
         }
       } catch (err) {
+        if (preUnlockedCtx && preUnlockedCtx !== audioContext) {
+          try { preUnlockedCtx.close(); } catch (e) {}
+        }
         if (acquiredDisplay) {
           acquiredDisplay.getTracks().forEach(t => { try { t.stop(); } catch (e) {} });
         }
@@ -8860,7 +9033,7 @@
       }
 
       // 每 3 秒智慧巡檢：若選擇定時批次模式 (60s/180s) 則按週期送出；若在預設智慧模式但瀏覽器 WebSpeech 未能上字（例如 file:// 本機協定或語音引擎受阻），只要累積滿 8 秒人聲即自動分段聽譯上字！
-      const targetSec = mode === 'interval_180' ? 180 : (mode === 'interval_60' ? 60 : 9);
+      const targetSec = mode === 'interval_180' ? 180 : (mode === 'interval_60' ? 60 : 6);
       pcmSliceInterval = setInterval(() => {
         if (!isRecording || isFlushingLiveSlice) return;
         const curElapsedSec = Math.floor((Date.now() - recordingStartTime) / 1000);
@@ -8870,12 +9043,12 @@
             flushPcmSliceToGemini(false, true);
           }
         } else if (mode === 'smart_post') {
-          const webSpeechSilentTooLong = (Date.now() - lastWebSpeechResultAt > 7500) && !currentInterimText;
-          if (sliceDurSec >= 9 && pcmSliceSpeechFrames >= 1 && webSpeechSilentTooLong && Boolean(getEffectiveGeminiKey())) {
+          const webSpeechSilentTooLong = (Date.now() - lastWebSpeechResultAt > 4800) && !currentInterimText;
+          if (sliceDurSec >= 6 && pcmSliceSpeechFrames >= 1 && webSpeechSilentTooLong && Boolean(getEffectiveGeminiKey())) {
             flushPcmSliceToGemini(false, true);
           }
         }
-      }, 3000);
+      }, 2000);
     }
 
     function setupPcmCapturePipeline(sourceNode) {
@@ -8900,7 +9073,7 @@
           sumSq += input[i] * input[i];
         }
         const rms = Math.sqrt(sumSq / input.length);
-        if (rms > 0.0018) {
+        if (rms > 0.0006) {
           pcmSliceSpeechFrames++;
           // 即時計算說話者物理聲紋（基頻 F0 + 過零率 ZCR），完全本地運算 0 API 消耗
           const { pitchHz, zcr } = estimateFramePitchAndZcr(input, inputSampleRate);
@@ -9101,7 +9274,7 @@
       const syncText = document.getElementById('liveAiSyncText');
       if (syncText) syncText.innerText = `AI 原音校正與分人 [${formatSec(startSec)}-${formatSec(endSec)}]...`;
       const livePreview = document.getElementById('liveCenterInterimPreview');
-      if (livePreview) livePreview.innerText = `⏳ 正在將 [${formatSec(startSec)} - ${formatSec(endSec)}] 麥克風收音交由 AI 轉寫為逐字稿...`;
+      if (livePreview) livePreview.innerText = `正在將 [${formatSec(startSec)} - ${formatSec(endSec)}] 麥克風收音交由 AI 轉寫為逐字稿...`;
 
       try {
         const base64Wav = await blobToBase64(wavBlob);
@@ -9534,11 +9707,16 @@ ${speakerRule}
       document.getElementById('liveAiSyncBadge').classList.add('active');
       document.getElementById('liveAiSyncText').innerText = '即時收音中';
 
+      zeroSignalSinceMs = Date.now();
+      refreshAvailableMicDevices();
       if (type === 'audio') {
         const b = document.getElementById('btnAudioRec');
         b.classList.add('btn-recording-active');
         document.getElementById('audioRecText').innerText = '結束錄音';
       } else {
+        const bAud = document.getElementById('btnAudioRec');
+        if (bAud) bAud.classList.add('btn-recording-active');
+        document.getElementById('audioRecText').innerText = '同步收音中';
         const b = document.getElementById('btnVideoRec');
         b.classList.add('btn-recording-active');
         document.getElementById('videoRecText').innerText = '結束錄影';
@@ -9630,6 +9808,9 @@ ${speakerRule}
 
     function drawWaveLoop() {
       if (!isRecording || !analyserNode) return;
+      if (audioContext && audioContext.state === 'suspended') {
+        try { audioContext.resume(); } catch (e) {}
+      }
       const timeData = new Uint8Array(analyserNode.fftSize);
       analyserNode.getByteTimeDomainData(timeData);
 
@@ -9646,13 +9827,25 @@ ${speakerRule}
       document.getElementById('volumeBar').style.width = `${pct}%`;
       document.getElementById('volumeLabel').innerText = `${pct}%`;
       document.getElementById('hwStatusText').innerText = pct > 4 ? `正在收音 (${pct}%)` : '麥克風監聽中';
+      syncVideoStageSubtitleStrip(pct);
+      if (pct > 3) {
+        zeroSignalSinceMs = Date.now();
+        const diagBox = document.getElementById('liveZeroVolDiagBox');
+        if (diagBox && diagBox.style.display !== 'none') diagBox.style.display = 'none';
+      } else if (zeroSignalSinceMs > 0 && (Date.now() - zeroSignalSinceMs > 4500)) {
+        const diagBox = document.getElementById('liveZeroVolDiagBox');
+        if (diagBox && diagBox.style.display === 'none') {
+          diagBox.style.display = 'flex';
+          refreshAvailableMicDevices();
+        }
+      }
 
       const centerVolBar = document.getElementById('liveCenterVolBar');
       if (centerVolBar) centerVolBar.style.width = `${pct}%`;
       const centerVolText = document.getElementById('liveCenterVolText');
       if (centerVolText) {
         centerVolText.innerText = pct > 4
-          ? `✅ 已偵測到人聲訊號 · 音量 ${pct}%`
+          ? `已偵測到人聲訊號 · 音量 ${pct}%`
           : '麥克風監聽中 (請開口說話) · 0%';
         centerVolText.style.color = pct > 4 ? '#157F3B' : '#2F5D46';
       }
@@ -16099,6 +16292,10 @@ ${segLines || '(無逐字稿，請依上方現有摘要決議整理)'}`;
       initMindMapInteractions();
       renderMindMapSvg();
       initSmartPlaybackEngine();
+      refreshAvailableMicDevices();
+      if (navigator.mediaDevices && typeof navigator.mediaDevices.addEventListener === 'function') {
+        navigator.mediaDevices.addEventListener('devicechange', refreshAvailableMicDevices);
+      }
       renderTranscript();
       await initDatabase();
 
@@ -18342,7 +18539,7 @@ ${segLines || '(無逐字稿，請依上方現有摘要決議整理)'}`;
             '<span class="sp-chip ' + (savedGeminiKey ? '' : 'is-amber') + '">' + (savedGeminiKey ? 'AI 金鑰已就緒' : '離線智慧待命') + '</span>' +
           '</div>' +
           '<div class="sp-card-title">AI 金鑰與收音基本設定</div>' +
-          '<div class="sp-card-sub">所有金鑰與偏好僅儲存於您的本機瀏覽器，絕不上傳公開儲存庫</div>' +
+          '<div class="sp-card-sub">設定預設收音語言、麥克風裝置、聲紋辨識與個人 Gemini API 金鑰</div>' +
         '</div>' +
       '</div>' +
       '<div class="sp-acct-scroll">' +
@@ -19519,41 +19716,22 @@ ${segLines || '(無逐字稿，請依上方現有摘要決議整理)'}`;
     }
   }
 
-  function applyDepthLayerClasses() {
-    const layerIds = [
-      'spLayerAccount',
-      'spLayerProjects',
-      'spLayerSessions',
-      'spLayerContent',
-      'spLayerAi'
-    ];
+  const SPATIAL_LAYER_IDS = [
+    'spLayerAccount',
+    'spLayerProjects',
+    'spLayerSessions',
+    'spLayerContent',
+    'spLayerAi'
+  ];
+  let _spDepthAnimSeq = 0;
+  let _spDepthCleanupTimer = null;
 
-    for (let d = 0; d < layerIds.length; d++) {
-      const el = document.getElementById(layerIds[d]);
-      if (!el) continue;
-      el.style.transition = '';
-      el.style.transform = '';
-      if (d < _spDepth) {
-        el.className = 'spatial-layer above-surface dived-past';
-        el.style.display = 'none';
-        el.style.visibility = 'hidden';
-        el.style.opacity = '0';
-        el.style.pointerEvents = 'none';
-      } else if (d === _spDepth) {
-        el.className = 'spatial-layer at-surface';
-        el.style.display = 'flex';
-        el.style.visibility = 'visible';
-        el.style.opacity = '1';
-        el.style.pointerEvents = 'auto';
-      } else {
-        el.className = 'spatial-layer below-surface';
-        el.style.display = 'none';
-        el.style.visibility = 'hidden';
-        el.style.opacity = '0';
-        el.style.pointerEvents = 'none';
-      }
-    }
+  function getLayerElByDepth(d) {
+    if (d < 0 || d >= SPATIAL_LAYER_IDS.length) return null;
+    return document.getElementById(SPATIAL_LAYER_IDS[d]);
+  }
 
+  function syncDepthHudAndCues() {
     const upCue = document.getElementById('spVerticalUpCue');
     const upTxt = document.getElementById('spVerticalUpText');
     if (_spDepth !== 0) {
@@ -19589,6 +19767,72 @@ ${segLines || '(無逐字稿，請依上方現有摘要決議整理)'}`;
 
     renderBreadcrumbs();
     updateSpatialNavButtons();
+  }
+
+  function applyDepthLayerClasses() {
+    clearTimeout(_spDepthCleanupTimer);
+    _spDepthCleanupTimer = null;
+    for (let d = 0; d < SPATIAL_LAYER_IDS.length; d++) {
+      const el = document.getElementById(SPATIAL_LAYER_IDS[d]);
+      if (!el) continue;
+      el.style.transition = '';
+      el.style.transform = '';
+      if (d < _spDepth) {
+        el.className = 'spatial-layer above-surface dived-past is-parked';
+        el.style.display = 'none';
+        el.style.visibility = '';
+        el.style.opacity = '0';
+        el.style.pointerEvents = 'none';
+      } else if (d === _spDepth) {
+        el.className = 'spatial-layer at-surface';
+        el.style.display = 'flex';
+        el.style.visibility = 'visible';
+        el.style.opacity = '1';
+        el.style.pointerEvents = 'auto';
+      } else {
+        el.className = 'spatial-layer below-surface is-parked';
+        el.style.display = 'none';
+        el.style.visibility = '';
+        el.style.opacity = '0';
+        el.style.pointerEvents = 'none';
+      }
+    }
+    syncDepthHudAndCues();
+  }
+
+  function prepareLayerContentForDepth(targetD) {
+    mountLiveStudioInto3D();
+    if (targetD === 0) {
+      renderSpatialLayer0Account(true);
+    } else if (targetD === 1) {
+      renderSpatialLayer1Projects(true);
+    } else if (targetD === 2) {
+      buildProjectGroupsData();
+      const curIdx = Math.max(0, Math.min(_spProjectGroups.length - 1, Math.round(_projTrack.target)));
+      const activeGrp = _spProjectGroups[curIdx];
+      if (activeGrp && !activeGrp.isLaunchpad) {
+        _spSelectedTagKey = activeGrp.tagKey;
+        _spSelectedTagTitle = activeGrp.title;
+      } else {
+        const allGrp = _spProjectGroups.find(function (g) { return !g.isLaunchpad && g.tagKey === '__ALL__'; });
+        if (allGrp) {
+          _spSelectedTagKey = allGrp.tagKey;
+          _spSelectedTagTitle = allGrp.title;
+        }
+      }
+      renderSpatialLayer2Sessions(getHostCurrentSessionId());
+    } else if (targetD === 3) {
+      renderLayer3HighlightsCard();
+      renderFilmstripBar();
+      _contentTrack.onRender(_contentTrack.pos);
+    } else if (targetD === 4) {
+      _aiTrack.onRender(_aiTrack.pos);
+      if (Math.round(_aiTrack.target) === 1 && typeof window.renderMindMapSvg === 'function') {
+        requestAnimationFrame(function () {
+          try { window.renderMindMapSvg(); } catch (_) {}
+        });
+      }
+    }
   }
 
   function updateSpatialNavButtons() {
@@ -19721,69 +19965,134 @@ ${segLines || '(無逐字稿，請依上方現有摘要決議整理)'}`;
     renderBreadcrumbs();
   }
 
-  function diveSpatialLayerTo(targetDepth) {
+  function diveSpatialLayerTo(targetDepth, opts) {
     const clamped = Math.max(0, Math.min(4, Math.round(Number(targetDepth) || 0)));
+    const fromDrag = Boolean(opts && opts.fromDrag);
+    const skipPrepare = Boolean(opts && opts.skipPrepare);
+    const instant = Boolean(opts && opts.instant);
 
     if (!_spIsOpen) {
       openSpatialDeckMode(clamped);
       return;
     }
 
-    mountLiveStudioInto3D();
-
-    if (clamped === 0) {
-      _spDepth = 0;
-      renderSpatialLayer0Account(true);
+    const prevDepth = _spDepth;
+    if (clamped === prevDepth && !fromDrag) {
+      prepareLayerContentForDepth(clamped);
       applyDepthLayerClasses();
       return;
     }
 
-    if (clamped === 1) {
-      _spDepth = 1;
-      renderSpatialLayer1Projects(true);
+    if (!skipPrepare) {
+      prepareLayerContentForDepth(clamped);
+    }
+
+    _spDepth = clamped;
+    if (instant || prevDepth === clamped) {
       applyDepthLayerClasses();
       return;
     }
 
-    if (clamped === 2) {
-      buildProjectGroupsData();
-      const curIdx = Math.max(0, Math.min(_spProjectGroups.length - 1, Math.round(_projTrack.target)));
-      const activeGrp = _spProjectGroups[curIdx];
-      if (activeGrp && !activeGrp.isLaunchpad) {
-        _spSelectedTagKey = activeGrp.tagKey;
-        _spSelectedTagTitle = activeGrp.title;
+    const prevEl = getLayerElByDepth(prevDepth);
+    const nextEl = getLayerElByDepth(clamped);
+    if (!prevEl || !nextEl) {
+      applyDepthLayerClasses();
+      return;
+    }
+
+    const mySeq = ++_spDepthAnimSeq;
+    clearTimeout(_spDepthCleanupTimer);
+
+    // Park any other layers that are neither prevDepth nor clamped
+    for (let d = 0; d < SPATIAL_LAYER_IDS.length; d++) {
+      if (d === prevDepth || d === clamped) continue;
+      const other = getLayerElByDepth(d);
+      if (other) {
+        other.className = 'spatial-layer is-parked';
+        other.style.transition = '';
+        other.style.transform = '';
+        other.style.opacity = '0';
+        other.style.display = 'none';
+        other.style.pointerEvents = 'none';
+      }
+    }
+
+    const goingDown = clamped > prevDepth;
+    const vhPx = Math.max(480, window.innerHeight || 768);
+    const travelPx = Math.round(vhPx * 0.34);
+
+    prevEl.className = 'spatial-layer is-animating';
+    prevEl.style.display = 'flex';
+    prevEl.style.visibility = 'visible';
+    prevEl.style.pointerEvents = 'none';
+
+    nextEl.className = 'spatial-layer at-surface';
+    nextEl.style.display = 'flex';
+    nextEl.style.visibility = 'visible';
+    nextEl.style.pointerEvents = 'auto';
+
+    if (!fromDrag) {
+      prevEl.style.transition = 'none';
+      if (!prevEl.style.transform) {
+        prevEl.style.transform = 'translate3d(0px, 0px, 0px) rotateX(0deg) scale(1)';
+        prevEl.style.opacity = '1';
+      }
+      nextEl.style.transition = 'none';
+      nextEl.style.transform = goingDown
+        ? 'translate3d(0px, ' + travelPx + 'px, -110px) rotateX(-4.5deg) scale(0.93)'
+        : 'translate3d(0px, ' + (-travelPx) + 'px, 80px) rotateX(4.5deg) scale(1.04)';
+      nextEl.style.opacity = '0';
+    }
+
+    // Flush starting pose to GPU compositor before triggering smooth cubic-bezier glide
+    void nextEl.offsetHeight;
+    syncDepthHudAndCues();
+
+    const parseTranslateY = function (tStr, fallbackY) {
+      if (!tStr) return fallbackY;
+      const m = String(tStr).match(/translate3d\([^,]+,\s*([-0-9.]+)px/i);
+      return m ? Number(m[1]) : fallbackY;
+    };
+    const prevStartY = fromDrag ? parseTranslateY(prevEl.style.transform, 0) : 0;
+    const prevEndY = goingDown ? -Math.round(vhPx * 0.30) : Math.round(vhPx * 0.30);
+    const prevStartOp = fromDrag ? Math.max(0.05, Number(prevEl.style.opacity || 1)) : 1;
+
+    const nextStartY = fromDrag ? parseTranslateY(nextEl.style.transform, goingDown ? travelPx : -travelPx) : (goingDown ? travelPx : -travelPx);
+    const nextStartOp = fromDrag ? Math.max(0, Number(nextEl.style.opacity || 0)) : 0;
+    const nextStartScale = goingDown ? 0.93 : 1.04;
+
+    prevEl.style.transition = 'none';
+    nextEl.style.transition = 'none';
+
+    const durMs = fromDrag ? 640 : 700;
+    const t0 = performance.now();
+
+    const stepGlide = function (nowTs) {
+      if (_spDepthAnimSeq !== mySeq) return;
+      const rawU = Math.max(0, Math.min(1, (nowTs - t0) / durMs));
+      const e = 1 - Math.pow(1 - rawU, 3.6);
+
+      const curPrevY = prevStartY + (prevEndY - prevStartY) * e;
+      const curPrevOp = prevStartOp * (1 - Math.min(1, rawU * 1.22));
+      const curPrevScale = 1 + ((goingDown ? 1.035 : 0.93) - 1) * e;
+      const curPrevRot = (goingDown ? 4.5 : -4.5) * e;
+      prevEl.style.transform = 'translate3d(0px, ' + curPrevY.toFixed(1) + 'px, ' + ((goingDown ? 65 : -95) * e).toFixed(1) + 'px) rotateX(' + curPrevRot.toFixed(2) + 'deg) scale(' + curPrevScale.toFixed(3) + ')';
+      prevEl.style.opacity = Math.max(0, curPrevOp).toFixed(3);
+
+      const curNextY = nextStartY * (1 - e);
+      const curNextOp = nextStartOp + (1 - nextStartOp) * Math.min(1, e * 1.08);
+      const curNextScale = nextStartScale + (1 - nextStartScale) * e;
+      const curNextRot = (goingDown ? -4.5 : 4.5) * (1 - e);
+      nextEl.style.transform = 'translate3d(0px, ' + curNextY.toFixed(1) + 'px, ' + ((goingDown ? -95 : 65) * (1 - e)).toFixed(1) + 'px) rotateX(' + curNextRot.toFixed(2) + 'deg) scale(' + curNextScale.toFixed(3) + ')';
+      nextEl.style.opacity = Math.min(1, curNextOp).toFixed(3);
+
+      if (rawU < 1) {
+        requestAnimationFrame(stepGlide);
       } else {
-        const allGrp = _spProjectGroups.find(function (g) { return !g.isLaunchpad && g.tagKey === '__ALL__'; });
-        if (allGrp) {
-          _spSelectedTagKey = allGrp.tagKey;
-          _spSelectedTagTitle = allGrp.title;
-        }
+        applyDepthLayerClasses();
       }
-      _spDepth = 2;
-      renderSpatialLayer2Sessions(getHostCurrentSessionId());
-      applyDepthLayerClasses();
-      return;
-    }
-
-    if (clamped === 3) {
-      _spDepth = 3;
-      renderLayer3HighlightsCard();
-      renderFilmstripBar();
-      _contentTrack.onRender(_contentTrack.pos);
-      applyDepthLayerClasses();
-      return;
-    }
-
-    if (clamped === 4) {
-      _spDepth = 4;
-      _aiTrack.onRender(_aiTrack.pos);
-      if (Math.round(_aiTrack.target) === 1 && typeof window.renderMindMapSvg === 'function') {
-        requestAnimationFrame(function () {
-          try { window.renderMindMapSvg(); } catch (_) {}
-        });
-      }
-      applyDepthLayerClasses();
-    }
+    };
+    requestAnimationFrame(stepGlide);
   }
 
   function diveSpatialLayer(direction) {
@@ -19982,6 +20291,7 @@ ${segLines || '(無逐字稿，請依上方現有摘要決議整理)'}`;
       let startY = 0;
       let startPos = 0;
       let samples = [];
+      let dragPeekDepth = -1;
 
       const getActiveLayerEl = function () {
         const ids = ['spLayerAccount', 'spLayerProjects', 'spLayerSessions', 'spLayerContent', 'spLayerAi'];
@@ -20026,6 +20336,7 @@ ${segLines || '(無逐字稿，請依上方現有摘要決議整理)'}`;
         startX = ev.clientX;
         startY = ev.clientY;
         startPos = track ? track.pos : 0;
+        dragPeekDepth = -1;
         samples = [{ x: ev.clientX, y: ev.clientY, t: Date.now() }];
       });
 
@@ -20086,14 +20397,70 @@ ${segLines || '(無逐字稿，請依上方現有摘要決議整理)'}`;
         } else if (dragAxis === 'y') {
           const layerEl = getActiveLayerEl();
           if (layerEl) {
+            clearTimeout(_spDepthCleanupTimer);
             const atEdge = (_spDepth === 0 && dy > 0) || (_spDepth === 4 && dy < 0);
-            const damp = atEdge ? 0.16 : 0.46;
-            const pullY = Math.max(-140, Math.min(140, dy * damp));
-            const rotX = Math.max(-9, Math.min(9, -pullY * 0.06));
-            layerEl.style.transition = 'none';
-            layerEl.style.transform =
-              'translate3d(0px, ' + pullY.toFixed(1) + 'px, -28px) ' +
-              'rotateX(' + rotX.toFixed(2) + 'deg) scale(0.985)';
+            const vhPx = Math.max(480, window.innerHeight || 768);
+            if (atEdge) {
+              if (dragPeekDepth !== -1) {
+                const oldPeek = getLayerElByDepth(dragPeekDepth);
+                if (oldPeek && dragPeekDepth !== _spDepth) {
+                  oldPeek.className = 'spatial-layer is-parked';
+                  oldPeek.style.display = 'none';
+                }
+                dragPeekDepth = -1;
+              }
+              const edgeY = Math.max(-90, Math.min(90, dy * 0.18));
+              const edgeRot = Math.max(-4, Math.min(4, -edgeY * 0.035));
+              layerEl.style.transition = 'none';
+              layerEl.style.opacity = '1';
+              layerEl.style.transform =
+                'translate3d(0px, ' + edgeY.toFixed(1) + 'px, -14px) ' +
+                'rotateX(' + edgeRot.toFixed(2) + 'deg) scale(0.992)';
+            } else {
+              const targetPeek = dy < 0 ? (_spDepth + 1) : (_spDepth - 1);
+              if (dragPeekDepth !== targetPeek) {
+                if (dragPeekDepth !== -1 && dragPeekDepth !== _spDepth) {
+                  const prevPeek = getLayerElByDepth(dragPeekDepth);
+                  if (prevPeek) {
+                    prevPeek.className = 'spatial-layer is-parked';
+                    prevPeek.style.display = 'none';
+                  }
+                }
+                dragPeekDepth = targetPeek;
+                if (dragPeekDepth >= 0 && dragPeekDepth <= 4) {
+                  prepareLayerContentForDepth(dragPeekDepth);
+                }
+              }
+              const prog = Math.min(1, Math.abs(dy) / Math.max(300, vhPx * 0.50));
+              const curY = Math.max(-340, Math.min(340, dy * 0.62));
+              const curRot = Math.max(-5.5, Math.min(5.5, -curY * 0.018));
+              const curScale = 1 - prog * 0.055;
+              const curOp = Math.max(0.20, 1 - prog * 0.72);
+              layerEl.style.transition = 'none';
+              layerEl.style.opacity = curOp.toFixed(3);
+              layerEl.style.transform =
+                'translate3d(0px, ' + curY.toFixed(1) + 'px, ' + (-prog * 75).toFixed(1) + 'px) ' +
+                'rotateX(' + curRot.toFixed(2) + 'deg) scale(' + curScale.toFixed(3) + ')';
+
+              const peekEl = getLayerElByDepth(dragPeekDepth);
+              if (peekEl) {
+                const enterFromBelow = dy < 0;
+                const baseOff = Math.round(vhPx * 0.42);
+                const peekY = (enterFromBelow ? 1 : -1) * baseOff * (1 - prog * 0.80);
+                const peekScale = enterFromBelow ? (0.92 + prog * 0.065) : (1.05 - prog * 0.04);
+                const peekRot = (enterFromBelow ? -4.5 : 4.5) * (1 - prog);
+                const peekZ = (enterFromBelow ? -105 : 75) * (1 - prog);
+                const peekOp = Math.min(0.96, prog * 1.08);
+                peekEl.className = 'spatial-layer is-animating';
+                peekEl.style.display = 'flex';
+                peekEl.style.visibility = 'visible';
+                peekEl.style.transition = 'none';
+                peekEl.style.opacity = peekOp.toFixed(3);
+                peekEl.style.transform =
+                  'translate3d(0px, ' + peekY.toFixed(1) + 'px, ' + peekZ.toFixed(1) + 'px) ' +
+                  'rotateX(' + peekRot.toFixed(2) + 'deg) scale(' + peekScale.toFixed(3) + ')';
+              }
+            }
           }
         }
 
@@ -20142,15 +20509,54 @@ ${segLines || '(無逐字稿，請依上方現有摘要決議整理)'}`;
           const totalDy = (ev && typeof ev.clientY === 'number')
             ? (ev.clientY - startY)
             : (samples.length > 0 ? samples[samples.length - 1].y - startY : 0);
-          const layerEl = getActiveLayerEl();
-          if (layerEl) {
-            layerEl.style.transition = '';
-            layerEl.style.transform = '';
-          }
-          if ((totalDy < -52 || vyPxPerMs < -0.32) && _spDepth < 4) {
-            diveSpatialLayer(1);
-          } else if ((totalDy > 52 || vyPxPerMs > 0.32) && _spDepth > 0) {
-            diveSpatialLayer(-1);
+          const peekSnapshot = dragPeekDepth;
+          dragPeekDepth = -1;
+
+          if ((totalDy < -58 || vyPxPerMs < -0.28) && _spDepth < 4) {
+            const targetD = _spDepth + 1;
+            diveSpatialLayerTo(targetD, {
+              fromDrag: peekSnapshot === targetD,
+              skipPrepare: peekSnapshot === targetD
+            });
+          } else if ((totalDy > 58 || vyPxPerMs > 0.28) && _spDepth > 0) {
+            const targetD = _spDepth - 1;
+            diveSpatialLayerTo(targetD, {
+              fromDrag: peekSnapshot === targetD,
+              skipPrepare: peekSnapshot === targetD
+            });
+          } else {
+            // Smoothly spring back to current layer instead of 0ms snap!
+            const curEl = getActiveLayerEl();
+            const peekEl = getLayerElByDepth(peekSnapshot);
+            const mySeq = ++_spDepthAnimSeq;
+            clearTimeout(_spDepthCleanupTimer);
+            const mCur = curEl && curEl.style.transform ? curEl.style.transform.match(/translate3d\([^,]+,\s*([-0-9.]+)px/i) : null;
+            const cStartY = mCur ? Number(mCur[1]) : 0;
+            const cStartOp = curEl ? Number(curEl.style.opacity || 1) : 1;
+            const mPeek = peekEl && peekEl.style.transform ? peekEl.style.transform.match(/translate3d\([^,]+,\s*([-0-9.]+)px/i) : null;
+            const pStartY = mPeek ? Number(mPeek[1]) : 0;
+            const pStartOp = peekEl ? Number(peekEl.style.opacity || 0) : 0;
+            const vhPx = Math.max(480, window.innerHeight || 768);
+            const pEndY = (peekSnapshot > _spDepth ? 1 : -1) * Math.round(vhPx * 0.42);
+            const t0 = performance.now();
+            const stepSnap = function (nowTs) {
+              if (_spDepthAnimSeq !== mySeq) return;
+              const u = Math.max(0, Math.min(1, (nowTs - t0) / 480));
+              const e = 1 - Math.pow(1 - u, 3.4);
+              if (curEl) {
+                curEl.style.transition = 'none';
+                curEl.style.transform = 'translate3d(0px, ' + (cStartY * (1 - e)).toFixed(1) + 'px, 0px) scale(1)';
+                curEl.style.opacity = (cStartOp + (1 - cStartOp) * e).toFixed(3);
+              }
+              if (peekEl && peekSnapshot !== _spDepth) {
+                peekEl.style.transition = 'none';
+                peekEl.style.transform = 'translate3d(0px, ' + (pStartY + (pEndY - pStartY) * e).toFixed(1) + 'px, -80px) scale(0.93)';
+                peekEl.style.opacity = (pStartOp * (1 - e)).toFixed(3);
+              }
+              if (u < 1) requestAnimationFrame(stepSnap);
+              else applyDepthLayerClasses();
+            };
+            requestAnimationFrame(stepSnap);
           }
         }
 
@@ -20239,7 +20645,7 @@ ${segLines || '(無逐字稿，請依上方現有摘要決議整理)'}`;
       if (absY >= 18) {
         const now = Date.now();
         if (now < _spWheelDiveCooldownUntil) return;
-        _spWheelDiveCooldownUntil = now + 420;
+        _spWheelDiveCooldownUntil = now + 580;
         if (ev.deltaY > 0 && _spDepth < 4) {
           diveSpatialLayer(1);
         } else if (ev.deltaY < 0 && _spDepth > 0) {
@@ -22801,6 +23207,7 @@ ${segLines || '(無逐字稿，請依上方現有摘要決議整理)'}`;
   window.closeSpatialDeckMode = closeSpatialDeckMode;
   window.diveSpatialLayer = diveSpatialLayer;
   window.diveSpatialLayerTo = diveSpatialLayerTo;
+  window._spGoTranscriptCard = function () { enterMeetingContent3D(0); };
   window.enterSessionFromSpatialDeck = enterSessionFromSpatialDeck;
   window.renderFilmstripBar = renderFilmstripBar;
   window.onFilmstripCardClick = onFilmstripCardClick;
