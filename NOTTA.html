@@ -1967,104 +1967,178 @@
   <!-- 四大空間與極速指揮模組樣式 (3D 空間艙 / 重點膠捲 / 手勢底抽屜 / 極速指揮艙) -->
   <style id="spatialSuiteStyles">
 /* ============================================================================
-   空間化智慧會議控制中心 — 四大科技模組獨立樣式表 (sp- / fs- / qs- / cmd-)
-   模組一：3D 會議時光空間艙 ＋ 120Hz 彈簧物理引擎 ＋ 雷射時間滑軌
-   模組二：單場視覺重點膠捲滑軌 (Filmstrip Scrubber)
-   模組三：可拖曳手勢底抽屜 (Bottom-Sheet 跨場次速覽與即時待辦)
-   模組四：全域極速指揮艙 (Ctrl+K / 空白鍵 懸浮指令面板 HUD)
+   空間化智慧會議控制中心 — 極簡北歐四層 Z 軸空間套件樣式表
+   00 戰情總覽 · 01 專案舞台 (預設首頁) · 02 會議時間軸 · 03 單場工作艙
    ============================================================================ */
 
-/* --- 頂部導覽列：雙模式膠囊切換器與極速指揮按鈕 --- */
-.sp-mode-switch {
-  display: inline-flex;
-  align-items: center;
-  background: var(--bg-subtle, #FAF9F6);
-  border: 1px solid var(--border-strong, #C5C2B7);
-  border-radius: 999px;
-  padding: 2px;
-  gap: 2px;
-  box-shadow: inset 0 1px 2px rgba(25, 25, 24, 0.04);
-  flex-shrink: 0;
+/* --- 宿主彈窗與全域通知層級提升（確保設定、日曆、錄影、匯出彈窗永遠浮於空間舞台之上） --- */
+.modal-backdrop {
+  z-index: 1250 !important;
 }
 
-.sp-mode-btn {
-  border: none;
-  background: transparent;
-  color: var(--text-secondary, #5A5955);
-  font-size: 12px;
-  font-weight: 600;
-  padding: 5px 11px;
-  border-radius: 999px;
-  cursor: pointer;
+#toastBox {
+  z-index: 2600 !important;
+}
+
+/* ============================================================================
+   第 03 層：單場工作艙頂部單列三區導覽列 (.topbar) 與可收合側邊欄 (#appSidebar)
+   ============================================================================ */
+@media (min-width: 769px) {
+  body.sp-sidebar-collapsed #appSidebar {
+    display: none;
+  }
+}
+
+@keyframes spStudioArrive {
+  from {
+    opacity: 0.92;
+    transform: scale(0.994);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.main-area.sp-studio-enter {
+  animation: spStudioArrive 0.26s cubic-bezier(0.19, 1, 0.22, 1);
+}
+
+.sp-return-stage-btn {
   display: inline-flex;
   align-items: center;
   gap: 5px;
+  height: 32px;
+  padding: 0 12px;
+  border-radius: 999px;
+  border: 1px solid #B7CDBD;
+  background: var(--brand-soft, #EBF3EE);
+  color: var(--brand, #2F5D46);
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
   white-space: nowrap;
-  transition: background 0.2s ease, color 0.2s ease, box-shadow 0.2s ease;
+  flex-shrink: 0;
+  transition: background 0.16s ease, border-color 0.16s ease, color 0.16s ease, transform 0.16s ease;
 }
 
-.sp-mode-btn:hover {
-  color: var(--text-main, #191918);
-}
-
-.sp-mode-btn.is-active {
+.sp-return-stage-btn:hover {
   background: var(--brand, #2F5D46);
+  border-color: var(--brand, #2F5D46);
   color: #FFFFFF;
-  box-shadow: 0 2px 6px rgba(47, 93, 70, 0.24);
 }
 
-.sp-mode-btn svg,
-.cmd-trigger-btn svg {
+.sp-sidebar-toggle-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  height: 32px;
+  padding: 0 10px;
+  border-radius: 8px;
+  border: 1px solid var(--border-strong, #C5C2B7);
+  background: var(--bg-subtle, #FAF9F6);
+  color: var(--text-main, #191918);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+  flex-shrink: 0;
+  transition: all 0.16s ease;
+}
+
+.sp-sidebar-toggle-btn svg {
   width: 13px;
   height: 13px;
   stroke: currentColor;
   fill: none;
   stroke-width: 1.9;
-  stroke-linecap: round;
-  stroke-linejoin: round;
   flex-shrink: 0;
+}
+
+.sp-sidebar-toggle-btn:hover {
+  border-color: var(--brand, #2F5D46);
+  color: var(--brand, #2F5D46);
+  background: #FFFFFF;
+}
+
+.sp-sidebar-toggle-btn.is-active {
+  background: var(--brand-soft, #EBF3EE);
+  border-color: #B7CDBD;
+  color: var(--brand, #2F5D46);
+}
+
+#spStudioCenterSlot {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 0;
 }
 
 .cmd-trigger-btn {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-  height: 31px;
-  padding: 0 10px;
+  justify-content: space-between;
+  gap: 8px;
+  width: 230px;
+  max-width: 100%;
+  height: 32px;
+  padding: 0 11px;
   border-radius: 999px;
   border: 1px solid var(--border-strong, #C5C2B7);
-  background: var(--bg-panel, #FFFFFF);
-  color: var(--text-main, #191918);
+  background: var(--bg-subtle, #FAF9F6);
+  color: var(--text-secondary, #5A5955);
   font-size: 12px;
   font-weight: 600;
   cursor: pointer;
   white-space: nowrap;
   flex-shrink: 0;
-  transition: border-color 0.18s ease, background 0.18s ease, box-shadow 0.18s ease;
+  transition: border-color 0.18s ease, background 0.18s ease, color 0.18s ease, box-shadow 0.18s ease;
 }
 
 .cmd-trigger-btn:hover {
   border-color: var(--brand, #2F5D46);
-  background: var(--brand-soft, #EBF3EE);
+  background: #FFFFFF;
   color: var(--brand, #2F5D46);
+  box-shadow: 0 3px 10px rgba(47, 93, 70, 0.08);
+}
+
+.cmd-trigger-left {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.cmd-trigger-btn svg {
+  width: 13px;
+  height: 13px;
+  stroke: currentColor;
+  fill: none;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  flex-shrink: 0;
 }
 
 .cmd-kbd-badge {
   font-family: Consolas, "JetBrains Mono", monospace;
   font-size: 10.5px;
   font-weight: 700;
-  padding: 1px 5px;
+  padding: 1px 6px;
   border-radius: 5px;
-  background: var(--bg-subtle, #FAF9F6);
+  background: #FFFFFF;
   border: 1px solid var(--border-light, #DEDCD3);
   color: var(--text-secondary, #5A5955);
+  flex-shrink: 0;
 }
 
 .sp-tag-fallback-btn {
   display: inline-flex;
   align-items: center;
   gap: 5px;
-  height: 29px;
+  height: 30px;
   padding: 0 10px;
   border-radius: 999px;
   border: 1px dashed var(--border-strong, #C5C2B7);
@@ -2076,76 +2150,296 @@
   white-space: nowrap;
 }
 
+/* 收音參數極簡北歐懸浮選單 (#spParamsPopoverWrap) */
+#spParamsPopoverWrap {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  flex-shrink: 0;
+}
+
+#spParamsPopoverBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 32px;
+  padding: 0 11px;
+  border-radius: 8px;
+  border: 1px solid var(--border-strong, #C5C2B7);
+  background: var(--bg-subtle, #FAF9F6);
+  color: var(--text-main, #191918);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all 0.16s ease;
+}
+
+#spParamsPopoverBtn svg {
+  width: 13px;
+  height: 13px;
+  stroke: var(--brand, #2F5D46);
+  fill: none;
+  stroke-width: 2;
+  flex-shrink: 0;
+}
+
+#spParamsPopoverBtn:hover,
+#spParamsPopoverWrap.is-open #spParamsPopoverBtn {
+  border-color: var(--brand, #2F5D46);
+  background: var(--brand-soft, #EBF3EE);
+  color: var(--brand, #2F5D46);
+}
+
+#spParamsPopoverPanel {
+  display: none;
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  width: 336px;
+  max-width: calc(100vw - 24px);
+  padding: 14px;
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.98);
+  backdrop-filter: blur(22px);
+  -webkit-backdrop-filter: blur(22px);
+  border: 1px solid var(--border-strong, #C5C2B7);
+  box-shadow: 0 22px 52px -12px rgba(25, 25, 24, 0.18), inset 0 1px 0 #FFFFFF;
+  z-index: 780;
+  flex-direction: column;
+  gap: 9px;
+}
+
+#spParamsPopoverWrap.is-open #spParamsPopoverPanel {
+  display: flex;
+  animation: spPopoverFade 0.16s cubic-bezier(0.19, 1, 0.22, 1);
+}
+
+@keyframes spPopoverFade {
+  from {
+    opacity: 0;
+    transform: translateY(-5px) scale(0.985);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.sp-params-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding-bottom: 7px;
+  border-bottom: 1px solid var(--border-light, #DEDCD3);
+}
+
+.sp-params-title {
+  font-size: 12.5px;
+  font-weight: 800;
+  color: var(--text-main, #191918);
+}
+
+.sp-params-sub {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--brand, #2F5D46);
+}
+
+.sp-params-list {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+}
+
+#spParamsPopoverPanel .pill-select {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 7px 11px;
+  border-radius: 9px;
+  background: var(--bg-subtle, #FAF9F6);
+  border: 1px solid var(--border-light, #DEDCD3);
+  font-size: 12px;
+}
+
+#spParamsPopoverPanel .pill-select:hover {
+  border-color: var(--border-strong, #C5C2B7);
+  background: #FFFFFF;
+}
+
+#spParamsPopoverPanel .pill-select select {
+  max-width: 205px;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--text-main, #191918);
+  text-align: right;
+}
+
+/* 桌面寬螢幕 (>= 1160px) 單列左・中・右三欄精準對齊鐵律 */
+@media (min-width: 1160px) {
+  .topbar {
+    display: grid !important;
+    grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+    align-items: center;
+    gap: 12px;
+    flex-wrap: nowrap !important;
+    padding: 8px 16px;
+  }
+
+  .topbar .title-group {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    flex-wrap: nowrap !important;
+    min-width: 0;
+  }
+
+  .topbar #meetingTitle {
+    width: 185px;
+    min-width: 110px;
+    flex: 0 1 185px;
+  }
+
+  .topbar #sessionProjectTagInput {
+    width: 125px;
+    min-width: 88px;
+    flex: 0 1 125px;
+  }
+
+  .topbar #spStudioCenterSlot {
+    justify-self: center;
+  }
+
+  .topbar .top-actions {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    justify-self: end;
+    gap: 6px;
+    flex-wrap: nowrap !important;
+    min-width: 0;
+  }
+
+  .topbar .top-actions > .btn {
+    white-space: nowrap;
+    flex-shrink: 0;
+  }
+}
+
+@media (max-width: 1159px) {
+  .topbar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+  }
+
+  #spStudioCenterSlot {
+    flex: 1 1 200px;
+    justify-content: flex-start;
+  }
+
+  .cmd-trigger-btn {
+    width: 100%;
+    max-width: 280px;
+  }
+}
+
 /* ============================================================================
-   模組一：3D 會議時光空間艙 (#spatialDeckOverlay)
+   模組一：極簡北歐四層 Z 軸 3D 空間舞台 (#spatialDeckOverlay)
+   預設主題 = 'light' (極簡北歐暖白岩石與松林綠)
    ============================================================================ */
 #spatialDeckOverlay {
   --sp-snap: cubic-bezier(0.19, 1, 0.22, 1);
-  --sp-bg: #070E1B;
-  --sp-bg-grad: radial-gradient(ellipse at 50% 18%, rgba(56, 189, 248, 0.13) 0%, rgba(15, 23, 42, 0.45) 48%, #050A14 100%);
-  --sp-grid-line: rgba(56, 189, 248, 0.065);
-  --sp-card-bg: rgba(15, 23, 42, 0.78);
-  --sp-card-bg-front: rgba(17, 27, 48, 0.88);
-  --sp-bar-bg: rgba(10, 18, 34, 0.82);
-  --sp-pill-bg: rgba(30, 41, 59, 0.72);
-  --sp-bdr: rgba(148, 163, 184, 0.20);
-  --sp-bdr-front: rgba(56, 189, 248, 0.52);
-  --sp-rim: inset 0 1px 0 rgba(255, 255, 255, 0.10);
-  --sp-shd: 0 28px 68px -16px rgba(0, 0, 0, 0.78);
-  --sp-t1: #F8FAFC;
-  --sp-t2: #CBD5E1;
-  --sp-t3: #94A3B8;
-  --sp-cyan: #38BDF8;
-  --sp-cyan-soft: rgba(56, 189, 248, 0.15);
-  --sp-teal: #2DD4BF;
-  --sp-teal-soft: rgba(45, 212, 191, 0.15);
-  --sp-amber: #FBBF24;
-  --sp-amber-soft: rgba(251, 191, 36, 0.16);
-  --sp-glare-color: rgba(56, 189, 248, 0.16);
+  --sp-bg: #F4F3EF;
+  --sp-bg-grad: radial-gradient(ellipse at 50% 15%, rgba(47, 93, 70, 0.06) 0%, rgba(244, 243, 239, 0.85) 56%, #ECEAE2 100%);
+  --sp-grid-line: rgba(25, 25, 24, 0.045);
+  --sp-card-bg: rgba(255, 255, 255, 0.94);
+  --sp-card-bg-front: rgba(255, 255, 255, 0.98);
+  --sp-bar-bg: rgba(255, 255, 255, 0.90);
+  --sp-pill-bg: #FAF9F6;
+  --sp-bdr: #DEDCD3;
+  --sp-bdr-strong: #C5C2B7;
+  --sp-bdr-front: rgba(47, 93, 70, 0.52);
+  --sp-rim: inset 0 1px 0 rgba(255, 255, 255, 0.95);
+  --sp-shd: 0 22px 52px -14px rgba(25, 25, 24, 0.10);
+  --sp-bar-shd: 0 10px 28px -8px rgba(25, 25, 24, 0.07);
+  --sp-t1: #191918;
+  --sp-t2: #5A5955;
+  --sp-t3: #8C8B85;
+  --sp-cyan: #2F5D46;
+  --sp-cyan-hover: #234735;
+  --sp-cyan-soft: #EBF3EE;
+  --sp-on-primary: #FFFFFF;
+  --sp-teal: #2F5D46;
+  --sp-teal-soft: #EBF3EE;
+  --sp-amber: #9E6B27;
+  --sp-amber-soft: #FBF5EA;
+  --sp-danger: #B84A39;
+  --sp-danger-soft: #F9ECEA;
+  --sp-glare-color: rgba(47, 93, 70, 0.065);
 
   position: fixed;
   inset: 0;
   z-index: 850;
   display: none;
   overflow: hidden;
+  overflow: clip;
   background: var(--sp-bg);
   color: var(--sp-t1);
   font-family: inherit;
   user-select: none;
 }
 
-#spatialDeckOverlay[data-spatial-theme="light"] {
-  --sp-bg: #F4F3EF;
-  --sp-bg-grad: radial-gradient(ellipse at 50% 14%, rgba(47, 93, 70, 0.08) 0%, rgba(244, 243, 239, 0.65) 55%, #ECEAE2 100%);
-  --sp-grid-line: rgba(25, 25, 24, 0.055);
-  --sp-card-bg: rgba(255, 255, 255, 0.84);
-  --sp-card-bg-front: rgba(255, 255, 255, 0.96);
-  --sp-bar-bg: rgba(255, 255, 255, 0.86);
-  --sp-pill-bg: rgba(234, 232, 224, 0.85);
-  --sp-bdr: rgba(25, 25, 24, 0.12);
-  --sp-bdr-front: rgba(47, 93, 70, 0.55);
-  --sp-rim: inset 0 1px 0 rgba(255, 255, 255, 0.9);
-  --sp-shd: 0 24px 56px -14px rgba(25, 25, 24, 0.14);
-  --sp-t1: #191918;
-  --sp-t2: #4A4945;
-  --sp-t3: #7D7C76;
-  --sp-cyan: #2F5D46;
-  --sp-cyan-soft: rgba(47, 93, 70, 0.12);
-  --sp-teal: #3A5A78;
-  --sp-teal-soft: rgba(58, 90, 120, 0.12);
-  --sp-amber: #9E6B27;
-  --sp-amber-soft: rgba(158, 107, 39, 0.13);
-  --sp-glare-color: rgba(47, 93, 70, 0.09);
+/* 暗房投影模式 ('dark') */
+#spatialDeckOverlay[data-spatial-theme="dark"] {
+  --sp-bg: #0E131A;
+  --sp-bg-grad: radial-gradient(ellipse at 50% 16%, rgba(74, 148, 112, 0.14) 0%, rgba(16, 23, 32, 0.75) 54%, #090D12 100%);
+  --sp-grid-line: rgba(226, 232, 240, 0.05);
+  --sp-card-bg: rgba(20, 28, 38, 0.88);
+  --sp-card-bg-front: rgba(24, 34, 46, 0.95);
+  --sp-bar-bg: rgba(16, 23, 32, 0.88);
+  --sp-pill-bg: rgba(30, 41, 56, 0.82);
+  --sp-bdr: rgba(148, 163, 184, 0.20);
+  --sp-bdr-strong: rgba(148, 163, 184, 0.34);
+  --sp-bdr-front: rgba(88, 179, 134, 0.56);
+  --sp-rim: inset 0 1px 0 rgba(255, 255, 255, 0.09);
+  --sp-shd: 0 26px 60px -14px rgba(0, 0, 0, 0.68);
+  --sp-bar-shd: 0 12px 32px rgba(0, 0, 0, 0.36);
+  --sp-t1: #F4F3EF;
+  --sp-t2: #CBD5E1;
+  --sp-t3: #94A3B8;
+  --sp-cyan: #58B386;
+  --sp-cyan-hover: #6BC498;
+  --sp-cyan-soft: rgba(88, 179, 134, 0.16);
+  --sp-on-primary: #06150E;
+  --sp-teal: #58B386;
+  --sp-teal-soft: rgba(88, 179, 134, 0.16);
+  --sp-amber: #E5A94C;
+  --sp-amber-soft: rgba(229, 169, 76, 0.16);
+  --sp-danger: #F08070;
+  --sp-danger-soft: rgba(240, 128, 112, 0.16);
+  --sp-glare-color: rgba(88, 179, 134, 0.11);
 }
 
 #spatialDeckOverlay.is-open {
   display: block;
-  animation: spOverlayEnter 0.32s var(--sp-snap) forwards;
+  animation: spOverlayEnter 0.28s var(--sp-snap) forwards;
 }
 
 @keyframes spOverlayEnter {
-  from { opacity: 0; transform: scale(0.985); }
-  to { opacity: 1; transform: scale(1); }
+  from {
+    opacity: 0;
+    transform: scale(0.99);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
 }
 
 .sp-ambient-bg {
@@ -2162,30 +2456,30 @@
   background-image:
     linear-gradient(var(--sp-grid-line) 1px, transparent 1px),
     linear-gradient(90deg, var(--sp-grid-line) 1px, transparent 1px);
-  background-size: 44px 44px;
+  background-size: 46px 46px;
   pointer-events: none;
   z-index: 1;
   will-change: transform;
 }
 
-/* 空間艙頂部導覽列 */
+/* 空間舞台頂部導覽列 — 單列左・中・右三區 CSS Grid */
 .sp-topbar {
   position: absolute;
-  top: 16px;
-  left: 22px;
-  right: 22px;
+  top: 14px;
+  left: 20px;
+  right: 20px;
   z-index: 40;
-  display: flex;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
   align-items: center;
-  justify-content: space-between;
   gap: 12px;
-  padding: 10px 16px;
-  border-radius: 16px;
+  padding: 8px 15px;
+  border-radius: 15px;
   background: var(--sp-bar-bg);
-  backdrop-filter: blur(22px) saturate(160%);
-  -webkit-backdrop-filter: blur(22px) saturate(160%);
+  backdrop-filter: blur(22px) saturate(150%);
+  -webkit-backdrop-filter: blur(22px) saturate(150%);
   border: 1px solid var(--sp-bdr);
-  box-shadow: var(--sp-rim), 0 10px 30px rgba(0, 0, 0, 0.16);
+  box-shadow: var(--sp-rim), var(--sp-bar-shd);
 }
 
 .sp-topbar-left {
@@ -2193,51 +2487,61 @@
   align-items: center;
   gap: 10px;
   min-width: 0;
-  flex-wrap: wrap;
+  overflow: hidden;
 }
 
 .sp-brand-badge {
   display: inline-flex;
   align-items: center;
-  gap: 7px;
+  gap: 8px;
   font-size: 13px;
-  font-weight: 700;
+  font-weight: 800;
   color: var(--sp-t1);
   letter-spacing: 0.02em;
   white-space: nowrap;
+  flex-shrink: 0;
 }
 
-.sp-brand-badge svg {
-  width: 15px;
-  height: 15px;
-  stroke: var(--sp-cyan);
-  fill: none;
-  stroke-width: 2;
+.sp-brand-logo {
+  height: 28px;
+  width: auto;
+  aspect-ratio: 1024 / 870;
+  object-fit: cover;
+  border-radius: 7px;
+  background: #1E252D;
+  border: 1px solid rgba(25, 25, 24, 0.14);
+  flex-shrink: 0;
+}
+
+.sp-brand-text {
+  white-space: nowrap;
 }
 
 .sp-breadcrumbs {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
+  gap: 5px;
   font-size: 12px;
   min-width: 0;
+  overflow: hidden;
 }
 
 .sp-crumb-sep {
   color: var(--sp-t3);
   font-weight: 600;
+  flex-shrink: 0;
 }
 
 .sp-crumb-pill {
-  border: 1px solid transparent;
+  border: 1px solid var(--sp-bdr);
   background: var(--sp-pill-bg);
   color: var(--sp-t2);
-  font-size: 12px;
+  font-size: 11.5px;
   font-weight: 600;
   padding: 4px 10px;
   border-radius: 999px;
   cursor: pointer;
-  max-width: 220px;
+  max-width: 210px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -2253,32 +2557,121 @@
   background: var(--sp-cyan-soft);
   color: var(--sp-cyan);
   border-color: var(--sp-bdr-front);
+  font-weight: 700;
 }
 
+/* 中央搜尋與極速指揮列 */
+.sp-topbar-center {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  justify-self: center;
+}
+
+.sp-cmd-searchbar {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  width: min(340px, 30vw);
+  height: 34px;
+  padding: 0 12px;
+  border-radius: 999px;
+  border: 1px solid var(--sp-bdr-strong);
+  background: var(--sp-pill-bg);
+  color: var(--sp-t2);
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.18s ease;
+}
+
+.sp-cmd-searchbar:hover {
+  border-color: var(--sp-bdr-front);
+  background: var(--sp-card-bg-front);
+  color: var(--sp-t1);
+  box-shadow: 0 4px 14px rgba(47, 93, 70, 0.08);
+}
+
+.sp-cmd-searchbar svg {
+  width: 14px;
+  height: 14px;
+  stroke: var(--sp-cyan);
+  fill: none;
+  stroke-width: 2.1;
+  flex-shrink: 0;
+}
+
+.sp-cmd-search-text {
+  flex: 1;
+  text-align: left;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* 右側控制群組 */
 .sp-topbar-right {
   display: flex;
   align-items: center;
+  justify-content: flex-end;
+  justify-self: end;
+  gap: 7px;
+  min-width: 0;
+}
+
+.sp-l2-toolbar-group {
+  display: inline-flex;
+  align-items: center;
   gap: 8px;
-  flex-shrink: 0;
+  margin-bottom: 14px;
+  padding: 5px 8px;
+  border-radius: 999px;
+  background: var(--sp-bar-bg);
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
+  border: 1px solid var(--sp-bdr);
+  box-shadow: var(--sp-rim), var(--sp-bar-shd);
+  position: relative;
+  z-index: 32;
+}
+
+.sp-l2-filter-input {
+  width: 210px;
+  height: 30px;
+  padding: 0 11px;
+  border-radius: 999px;
+  border: 1px solid var(--sp-bdr-strong);
+  background: var(--sp-pill-bg);
+  color: var(--sp-t1);
+  font-size: 12px;
+  font-weight: 500;
+  outline: none;
+  transition: border-color 0.18s ease, background 0.18s ease;
+}
+
+.sp-l2-filter-input:focus {
+  border-color: var(--sp-cyan);
+  background: var(--sp-card-bg-front);
+}
+
+.sp-l2-filter-input::placeholder {
+  color: var(--sp-t3);
 }
 
 .sp-live-rec-pill {
   display: none;
   align-items: center;
   gap: 7px;
-  padding: 5px 12px;
+  height: 32px;
+  padding: 0 12px;
   border-radius: 999px;
-  background: rgba(184, 74, 57, 0.18);
-  border: 1px solid rgba(239, 68, 68, 0.55);
-  color: #FCA5A5;
+  background: var(--sp-danger-soft);
+  border: 1px solid var(--sp-danger);
+  color: var(--sp-danger);
   font-size: 12px;
   font-weight: 700;
   cursor: pointer;
-}
-
-#spatialDeckOverlay[data-spatial-theme="light"] .sp-live-rec-pill {
-  color: #B84A39;
-  background: #F9ECEA;
+  white-space: nowrap;
 }
 
 .sp-live-rec-pill.is-recording {
@@ -2289,7 +2682,7 @@
   width: 8px;
   height: 8px;
   border-radius: 50%;
-  background: #EF4444;
+  background: #D94838;
   animation: spRecPulse 1.2s infinite ease-in-out;
 }
 
@@ -2312,6 +2705,7 @@
   font-weight: 600;
   cursor: pointer;
   white-space: nowrap;
+  flex-shrink: 0;
   transition: all 0.18s ease;
 }
 
@@ -2323,13 +2717,15 @@
 
 .sp-top-btn.is-primary {
   background: var(--sp-cyan);
-  color: #041019;
-  border-color: transparent;
+  color: var(--sp-on-primary);
+  border-color: var(--sp-cyan);
   font-weight: 700;
 }
 
-#spatialDeckOverlay[data-spatial-theme="light"] .sp-top-btn.is-primary {
-  color: #FFFFFF;
+.sp-top-btn.is-primary:hover {
+  background: var(--sp-cyan-hover);
+  border-color: var(--sp-cyan-hover);
+  color: var(--sp-on-primary);
 }
 
 .sp-top-btn svg {
@@ -2337,10 +2733,18 @@
   height: 13px;
   stroke: currentColor;
   fill: none;
-  stroke-width: 2;
+  stroke-width: 1.9;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  flex-shrink: 0;
 }
 
-/* 右側空間深度軌 (#spatialDepthRail) */
+.sp-theme-btn {
+  padding: 0 10px;
+  color: var(--sp-t2);
+}
+
+/* 右側四層空間深度軌 (#spatialDepthRail) */
 #spatialDepthRail {
   position: absolute;
   right: 20px;
@@ -2350,14 +2754,14 @@
   display: flex;
   flex-direction: column;
   align-items: flex-end;
-  gap: 10px;
+  gap: 8px;
   padding: 12px 10px;
   border-radius: 16px;
   background: var(--sp-bar-bg);
   backdrop-filter: blur(18px);
   -webkit-backdrop-filter: blur(18px);
   border: 1px solid var(--sp-bdr);
-  box-shadow: var(--sp-rim);
+  box-shadow: var(--sp-rim), var(--sp-bar-shd);
 }
 
 .sp-depth-node {
@@ -2369,9 +2773,10 @@
   color: var(--sp-t3);
   font-size: 11.5px;
   font-weight: 600;
-  padding: 5px 8px;
+  padding: 5px 9px;
   border-radius: 999px;
   cursor: pointer;
+  white-space: nowrap;
   transition: all 0.2s ease;
 }
 
@@ -2383,6 +2788,7 @@
 .sp-depth-node.is-active {
   color: var(--sp-cyan);
   background: var(--sp-cyan-soft);
+  font-weight: 700;
 }
 
 .sp-depth-pip {
@@ -2396,15 +2802,15 @@
 
 .sp-depth-node.is-active .sp-depth-pip {
   background: var(--sp-cyan);
-  box-shadow: 0 0 10px var(--sp-cyan);
+  box-shadow: 0 0 8px var(--sp-cyan-soft);
   transform: scale(1.18);
 }
 
 .sp-depth-sep {
   width: 1px;
-  height: 14px;
+  height: 12px;
   background: var(--sp-bdr);
-  margin-right: 11px;
+  margin-right: 12px;
 }
 
 /* Z 軸多層攝影機世界與下潛動畫 */
@@ -2414,6 +2820,7 @@
   width: 100vw;
   height: 100vh;
   overflow: hidden;
+  overflow: clip;
   cursor: grab;
   touch-action: none;
 }
@@ -2425,12 +2832,12 @@
 .spatial-layer {
   position: absolute;
   inset: 0;
-  padding: 78px 98px 28px 28px;
+  padding: 74px 128px 34px 28px;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  transition: transform 0.56s cubic-bezier(0.19, 1, 0.22, 1), opacity 0.42s ease;
+  transition: transform 0.54s cubic-bezier(0.19, 1, 0.22, 1), opacity 0.40s ease;
   will-change: transform, opacity;
 }
 
@@ -2441,7 +2848,7 @@
 }
 
 .spatial-layer.dived-past {
-  transform: translate3d(0, -18vh, 0) scale(1.07);
+  transform: translate3d(0, -18vh, 0) scale(1.06);
   opacity: 0;
   pointer-events: none !important;
 }
@@ -2451,7 +2858,7 @@
 }
 
 .spatial-layer.below-surface {
-  transform: translate3d(0, 20vh, 0) scale(0.91);
+  transform: translate3d(0, 20vh, 0) scale(0.92);
   opacity: 0;
   pointer-events: none !important;
 }
@@ -2460,7 +2867,278 @@
   pointer-events: none !important;
 }
 
-/* 3D CoverFlow 舞台與零 CSS transform transition 卡片鐵律 */
+/* ============================================================================
+   第 00 層：極簡北歐全域戰情與跨場次 AI 總覽台 (#spLayerOverview / .sp-l0-hub)
+   ============================================================================ */
+#spLayerOverview {
+  cursor: default;
+}
+
+.sp-l0-hub {
+  width: 100%;
+  max-width: 1020px;
+  max-height: calc(100vh - 116px);
+  overflow-y: auto;
+  padding: 4px 6px 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  user-select: text;
+}
+
+.sp-l0-hub::-webkit-scrollbar {
+  width: 6px;
+}
+
+.sp-l0-hub::-webkit-scrollbar-thumb {
+  background: var(--sp-bdr-strong);
+  border-radius: 999px;
+}
+
+.sp-l0-header {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.sp-l0-eyebrow {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  color: var(--sp-cyan);
+  margin-bottom: 3px;
+}
+
+.sp-l0-heading {
+  font-size: 21px;
+  font-weight: 800;
+  color: var(--sp-t1);
+  letter-spacing: -0.01em;
+}
+
+.sp-l0-sub {
+  font-size: 12px;
+  color: var(--sp-t2);
+}
+
+.sp-l0-kpi-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.sp-l0-kpi-card {
+  padding: 15px 17px;
+  border-radius: 16px;
+  background: var(--sp-card-bg);
+  border: 1px solid var(--sp-bdr);
+  box-shadow: var(--sp-shd), var(--sp-rim);
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.sp-l0-kpi-label {
+  font-size: 11.5px;
+  font-weight: 700;
+  color: var(--sp-t2);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.sp-l0-kpi-val {
+  font-size: 27px;
+  font-weight: 800;
+  line-height: 1.15;
+  color: var(--sp-t1);
+  font-variant-numeric: tabular-nums;
+}
+
+.sp-l0-kpi-val.is-pine {
+  color: var(--sp-cyan);
+}
+
+.sp-l0-kpi-val.is-amber {
+  color: var(--sp-amber);
+}
+
+.sp-l0-kpi-foot {
+  font-size: 11.5px;
+  color: var(--sp-t3);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.sp-l0-action-bar {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  flex-wrap: wrap;
+  padding: 11px 14px;
+  border-radius: 14px;
+  background: var(--sp-card-bg);
+  border: 1px solid var(--sp-bdr);
+  box-shadow: var(--sp-rim);
+}
+
+.sp-l0-btn {
+  height: 34px;
+  padding: 0 14px;
+  border-radius: 999px;
+  border: 1px solid var(--sp-bdr-strong);
+  background: var(--sp-pill-bg);
+  color: var(--sp-t1);
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  white-space: nowrap;
+  transition: all 0.16s ease;
+}
+
+.sp-l0-btn:hover {
+  border-color: var(--sp-bdr-front);
+  background: var(--sp-cyan-soft);
+  color: var(--sp-cyan);
+}
+
+.sp-l0-btn.is-primary {
+  background: var(--sp-cyan);
+  border-color: var(--sp-cyan);
+  color: var(--sp-on-primary);
+}
+
+.sp-l0-btn.is-primary:hover {
+  background: var(--sp-cyan-hover);
+  border-color: var(--sp-cyan-hover);
+  color: var(--sp-on-primary);
+}
+
+.sp-l0-btn.is-push-right {
+  margin-left: auto;
+}
+
+.sp-l0-ai-box {
+  padding: 15px 18px;
+  border-radius: 16px;
+  background: var(--sp-card-bg-front);
+  border: 1px solid var(--sp-bdr-front);
+  box-shadow: var(--sp-shd), var(--sp-rim);
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+}
+
+.sp-l0-sec-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.sp-l0-sec-title {
+  font-size: 13px;
+  font-weight: 800;
+  color: var(--sp-cyan);
+}
+
+.sp-l0-sec-hint {
+  font-size: 11.5px;
+  color: var(--sp-t3);
+}
+
+.sp-l0-ai-row {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+}
+
+#spL0AiInput {
+  flex: 1;
+  height: 38px;
+  padding: 0 14px;
+  border-radius: 10px;
+  border: 1px solid var(--sp-bdr-strong);
+  background: var(--sp-pill-bg);
+  color: var(--sp-t1);
+  font-size: 13px;
+  font-weight: 500;
+  outline: none;
+  transition: border-color 0.16s ease, background 0.16s ease;
+}
+
+#spL0AiInput:focus {
+  border-color: var(--sp-cyan);
+  background: var(--sp-card-bg-front);
+}
+
+.sp-l0-todos-box {
+  padding: 14px 18px;
+  border-radius: 16px;
+  background: var(--sp-card-bg);
+  border: 1px solid var(--sp-bdr);
+  box-shadow: var(--sp-shd), var(--sp-rim);
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+}
+
+.sp-l0-todo-list {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+}
+
+.sp-l0-todo-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 8px 12px;
+  border-radius: 10px;
+  background: var(--sp-pill-bg);
+  border: 1px solid var(--sp-bdr);
+}
+
+.sp-l0-todo-main {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  flex: 1;
+}
+
+.sp-l0-todo-task {
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--sp-t1);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.sp-l0-todo-session {
+  font-size: 11.5px;
+  color: var(--sp-t3);
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.sp-l0-empty-todos {
+  padding: 10px 4px;
+  font-size: 12.5px;
+  color: var(--sp-t2);
+}
+
+/* ============================================================================
+   第 01 層 & 第 02 層：120Hz 3D CoverFlow 舞台與零 CSS transform transition 卡片鐵律
+   ============================================================================ */
 .sp-stage-row {
   position: relative;
   width: 100%;
@@ -2473,8 +3151,8 @@
 .sp-deck-vp {
   position: relative;
   width: 100%;
-  height: 406px;
-  perspective: 1450px;
+  height: 422px;
+  perspective: 1480px;
   transform-style: preserve-3d;
   display: flex;
   align-items: center;
@@ -2483,14 +3161,14 @@
 
 .sp-card {
   position: absolute;
-  width: 520px;
+  width: 536px;
   max-width: 84vw;
-  height: 382px;
-  border-radius: 26px;
-  padding: 24px 28px;
+  height: 398px;
+  border-radius: 24px;
+  padding: 22px 26px;
   background: var(--sp-card-bg);
-  backdrop-filter: blur(24px) saturate(165%);
-  -webkit-backdrop-filter: blur(24px) saturate(165%);
+  backdrop-filter: blur(22px) saturate(155%);
+  -webkit-backdrop-filter: blur(22px) saturate(155%);
   border: 1px solid var(--sp-bdr);
   box-shadow: var(--sp-shd), var(--sp-rim);
   display: flex;
@@ -2506,6 +3184,10 @@
 .sp-card.is-front {
   background: var(--sp-card-bg-front);
   border-color: var(--sp-bdr-front);
+}
+
+.sp-card.is-launchpad {
+  cursor: default;
 }
 
 .sp-card-glare {
@@ -2529,10 +3211,10 @@
 .sp-orb-arrow {
   position: relative;
   z-index: 30;
-  width: 44px;
-  height: 44px;
+  width: 42px;
+  height: 42px;
   border-radius: 50%;
-  border: 1px solid var(--sp-bdr);
+  border: 1px solid var(--sp-bdr-strong);
   background: var(--sp-bar-bg);
   backdrop-filter: blur(16px);
   color: var(--sp-t1);
@@ -2564,7 +3246,7 @@
   stroke-width: 2.2;
 }
 
-/* 第 1 層專案分類卡內容排版 */
+/* 卡片內容通用排版 */
 .sp-card-top {
   display: flex;
   align-items: flex-start;
@@ -2579,7 +3261,7 @@
   align-items: center;
   gap: 7px;
   flex-wrap: wrap;
-  margin-bottom: 8px;
+  margin-bottom: 7px;
 }
 
 .sp-chip {
@@ -2599,12 +3281,13 @@
 
 .sp-chip.is-muted {
   background: var(--sp-pill-bg);
+  border: 1px solid var(--sp-bdr);
   color: var(--sp-t2);
   font-weight: 600;
 }
 
 .sp-card-title {
-  font-size: 21px;
+  font-size: 20px;
   font-weight: 800;
   line-height: 1.3;
   color: var(--sp-t1);
@@ -2616,8 +3299,109 @@
 
 .sp-card-sub {
   font-size: 12px;
-  color: var(--sp-t3);
-  margin-top: 5px;
+  color: var(--sp-t2);
+  margin-top: 4px;
+}
+
+/* 新會議快速發射艙專屬區塊 (Card 0) */
+.sp-launch-body {
+  position: relative;
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  gap: 11px;
+  padding: 13px 15px;
+  border-radius: 16px;
+  background: var(--sp-pill-bg);
+  border: 1px solid var(--sp-bdr);
+}
+
+.sp-launch-tag-row {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+}
+
+.sp-launch-tag-label {
+  font-size: 11.5px;
+  font-weight: 700;
+  color: var(--sp-t2);
+  white-space: nowrap;
+}
+
+#spLaunchTagInput {
+  flex: 1;
+  height: 34px;
+  padding: 0 11px;
+  border-radius: 9px;
+  border: 1px solid var(--sp-bdr-strong);
+  background: var(--sp-card-bg-front);
+  color: var(--sp-t1);
+  font-size: 12.5px;
+  font-weight: 600;
+  outline: none;
+  transition: border-color 0.16s ease;
+}
+
+#spLaunchTagInput:focus {
+  border-color: var(--sp-cyan);
+}
+
+.sp-launch-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 9px;
+}
+
+.sp-launch-btn {
+  padding: 11px 10px;
+  border-radius: 12px;
+  border: 1px solid var(--sp-bdr-strong);
+  background: var(--sp-card-bg-front);
+  color: var(--sp-t1);
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  text-align: center;
+  transition: all 0.18s ease;
+}
+
+.sp-launch-btn svg {
+  width: 17px;
+  height: 17px;
+  stroke: var(--sp-cyan);
+  fill: none;
+  stroke-width: 1.9;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.sp-launch-btn:hover {
+  border-color: var(--sp-cyan);
+  background: var(--sp-cyan-soft);
+  color: var(--sp-cyan);
+  transform: translateY(-1px);
+}
+
+.sp-launch-btn.is-hero {
+  background: var(--sp-cyan);
+  border-color: var(--sp-cyan);
+  color: var(--sp-on-primary);
+}
+
+.sp-launch-btn.is-hero svg {
+  stroke: var(--sp-on-primary);
+}
+
+.sp-launch-btn.is-hero:hover {
+  background: var(--sp-cyan-hover);
+  border-color: var(--sp-cyan-hover);
+  color: var(--sp-on-primary);
 }
 
 /* SVG 動態進度圓環 (ring-mini) */
@@ -2677,13 +3461,13 @@
 .sp-mid-box {
   position: relative;
   z-index: 2;
-  padding: 13px 15px;
-  border-radius: 16px;
+  padding: 12px 15px;
+  border-radius: 15px;
   background: var(--sp-pill-bg);
   border: 1px solid var(--sp-bdr);
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 5px;
 }
 
 .sp-mid-label {
@@ -2707,10 +3491,10 @@
 
 .sp-mid-desc {
   font-size: 12.5px;
-  line-height: 1.55;
+  line-height: 1.52;
   color: var(--sp-t2);
   display: -webkit-box;
-  -webkit-line-clamp: 3;
+  -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
   overflow: hidden;
 }
@@ -2721,7 +3505,7 @@
   margin: 0;
   display: flex;
   flex-direction: column;
-  gap: 5px;
+  gap: 4px;
 }
 
 .sp-bullet-list li {
@@ -2754,12 +3538,12 @@
 }
 
 .sp-mini-thumb {
-  width: 74px;
-  height: 42px;
+  width: 72px;
+  height: 40px;
   border-radius: 8px;
   object-fit: cover;
   border: 1px solid var(--sp-bdr);
-  background: #0B1220;
+  background: #1B2128;
   flex-shrink: 0;
 }
 
@@ -2770,102 +3554,95 @@
   white-space: nowrap;
 }
 
-/* 卡片底部列與雙動作按鈕 */
+/* 卡片底部列與多動作按鈕 */
 .sp-card-foot {
   position: relative;
   z-index: 2;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 10px;
+  gap: 8px;
   padding-top: 10px;
   border-top: 1px solid var(--sp-bdr);
 }
 
 .sp-foot-meta {
-  font-size: 11.5px;
+  font-size: 11px;
   color: var(--sp-t3);
   display: flex;
   align-items: center;
-  gap: 10px;
-  flex-wrap: wrap;
-}
-
-.sp-dive-hint {
-  font-size: 12px;
-  font-weight: 700;
-  color: var(--sp-cyan);
-  padding: 5px 12px;
-  border-radius: 999px;
-  background: var(--sp-cyan-soft);
-  transition: all 0.18s ease;
-}
-
-.sp-card.is-front:hover .sp-dive-hint {
-  background: var(--sp-cyan);
-  color: #041019;
-}
-
-#spatialDeckOverlay[data-spatial-theme="light"] .sp-card.is-front:hover .sp-dive-hint {
-  color: #FFFFFF;
+  gap: 6px;
+  white-space: nowrap;
 }
 
 .sp-card-actions {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 7px;
   width: 100%;
+  justify-content: flex-end;
+  flex-wrap: nowrap;
+}
+
+.sp-card-actions.is-spread {
   justify-content: space-between;
 }
 
 .sp-act-btn {
-  height: 33px;
-  padding: 0 14px;
+  height: 31px;
+  padding: 0 11px;
   border-radius: 999px;
-  font-size: 12px;
+  font-size: 11.5px;
   font-weight: 700;
   cursor: pointer;
-  border: 1px solid var(--sp-bdr);
+  border: 1px solid var(--sp-bdr-strong);
   background: var(--sp-pill-bg);
   color: var(--sp-t1);
   display: inline-flex;
   align-items: center;
-  gap: 5px;
-  transition: all 0.18s ease;
+  gap: 4px;
+  white-space: nowrap;
+  transition: all 0.16s ease;
 }
 
 .sp-act-btn:hover {
   border-color: var(--sp-bdr-front);
+  background: var(--sp-cyan-soft);
   color: var(--sp-cyan);
+}
+
+.sp-act-btn.is-danger:hover {
+  border-color: var(--sp-danger);
+  background: var(--sp-danger-soft);
+  color: var(--sp-danger);
 }
 
 .sp-act-btn.is-enter {
   background: var(--sp-cyan);
-  color: #041019;
-  border-color: transparent;
-}
-
-#spatialDeckOverlay[data-spatial-theme="light"] .sp-act-btn.is-enter {
-  color: #FFFFFF;
+  color: var(--sp-on-primary);
+  border-color: var(--sp-cyan);
+  margin-left: auto;
 }
 
 .sp-act-btn.is-enter:hover {
-  filter: brightness(1.08);
+  background: var(--sp-cyan-hover);
+  border-color: var(--sp-cyan-hover);
+  color: var(--sp-on-primary);
 }
 
 /* 底部雷射時間軸滑軌 (#spatialLaserScrubber) */
 #spatialLaserScrubber {
-  margin-top: 20px;
+  margin-top: 18px;
   display: flex;
   align-items: center;
   gap: 6px;
-  padding: 7px 14px;
+  padding: 6px 13px;
   border-radius: 999px;
   background: var(--sp-bar-bg);
   backdrop-filter: blur(22px);
   -webkit-backdrop-filter: blur(22px);
   border: 1px solid var(--sp-bdr);
-  box-shadow: var(--sp-rim), 0 12px 30px rgba(0, 0, 0, 0.22);
+  box-shadow: var(--sp-rim), var(--sp-bar-shd);
   max-width: min(920px, 86vw);
   overflow-x: auto;
   scrollbar-width: none;
@@ -2880,11 +3657,11 @@
 .sp-laser-chip {
   border: 1px solid transparent;
   background: transparent;
-  color: var(--sp-t3);
+  color: var(--sp-t2);
   font-family: Consolas, "JetBrains Mono", monospace;
   font-size: 11.5px;
   font-weight: 600;
-  height: 29px;
+  height: 28px;
   padding: 0 11px;
   border-radius: 999px;
   cursor: pointer;
@@ -2905,7 +3682,7 @@
   background: var(--sp-cyan-soft);
   color: var(--sp-cyan);
   border-color: var(--sp-bdr-front);
-  box-shadow: 0 0 14px var(--sp-cyan-soft);
+  font-weight: 700;
 }
 
 .sp-laser-dot {
@@ -2913,29 +3690,28 @@
   height: 6px;
   border-radius: 50%;
   background: var(--sp-amber);
-  box-shadow: 0 0 6px var(--sp-amber);
 }
 
-/* 空間艙底部鍵盤導航提示與空狀態卡 */
+/* 空間舞台底部鍵盤導航提示與空時間軸卡 */
 .sp-bottom-hud-hint {
   position: absolute;
-  bottom: 14px;
+  bottom: 12px;
   left: 50%;
   transform: translateX(-50%);
   z-index: 30;
-  font-size: 11.5px;
+  font-size: 11px;
   color: var(--sp-t3);
   display: flex;
   align-items: center;
-  gap: 14px;
+  gap: 12px;
   white-space: nowrap;
   pointer-events: none;
 }
 
 .sp-empty-card {
   width: min(480px, 88vw);
-  padding: 34px 30px;
-  border-radius: 24px;
+  padding: 32px 28px;
+  border-radius: 22px;
   background: var(--sp-card-bg-front);
   border: 1px solid var(--sp-bdr-front);
   box-shadow: var(--sp-shd);
@@ -2947,7 +3723,7 @@
 }
 
 /* ============================================================================
-   模組二：單場會議橫向 3D 視覺重點膠捲滑軌 (#filmstripBar)
+   模組二：單場會議橫向視覺重點膠捲滑軌 (#filmstripBar)
    ============================================================================ */
 #filmstripBar {
   display: none;
@@ -3090,7 +3866,6 @@
   box-shadow: 0 0 0 3px rgba(47, 93, 70, 0.16), 0 8px 18px rgba(25, 25, 24, 0.12);
 }
 
-/* 類型 A：畫面截圖卡 */
 .fs-card.is-snap {
   background: #14171A;
 }
@@ -3109,8 +3884,8 @@
   left: 6px;
   padding: 1px 6px;
   border-radius: 5px;
-  background: rgba(15, 23, 42, 0.78);
-  color: #F8FAFC;
+  background: rgba(25, 25, 24, 0.80);
+  color: #FAF9F6;
   font-family: Consolas, "JetBrains Mono", monospace;
   font-size: 10.5px;
   font-weight: 700;
@@ -3136,8 +3911,8 @@
   right: 0;
   bottom: 0;
   padding: 16px 8px 5px;
-  background: linear-gradient(180deg, transparent 0%, rgba(10, 14, 22, 0.88) 100%);
-  color: #F1F5F9;
+  background: linear-gradient(180deg, transparent 0%, rgba(16, 18, 20, 0.88) 100%);
+  color: #F4F3EF;
   font-size: 11px;
   font-weight: 600;
   white-space: nowrap;
@@ -3146,7 +3921,6 @@
   z-index: 2;
 }
 
-/* 類型 B：星號金句卡 */
 .fs-card.is-star {
   border-left: 3.5px solid var(--amber, #9E6B27);
   background: linear-gradient(145deg, #FFFDF8 0%, var(--amber-soft, #FBF5EA) 100%);
@@ -3193,27 +3967,26 @@
   overflow: hidden;
 }
 
-/* 琥珀金呼吸脈衝高亮 (.fs-amber-pulse & .cmd-amber-lock-pulse) */
 @keyframes amberPulseGlow {
   0% {
-    box-shadow: 0 0 0 0 rgba(217, 119, 6, 0.55);
-    border-color: #D97706;
-    background-color: #FEF3C7;
+    box-shadow: 0 0 0 0 rgba(158, 107, 39, 0.48);
+    border-color: #9E6B27;
+    background-color: #FBF5EA;
   }
   50% {
-    box-shadow: 0 0 0 7px rgba(217, 119, 6, 0.14);
-    border-color: #F59E0B;
-    background-color: #FFFBEB;
+    box-shadow: 0 0 0 7px rgba(158, 107, 39, 0.14);
+    border-color: #B97E32;
+    background-color: #FFFDF8;
   }
   100% {
-    box-shadow: 0 0 0 0 rgba(217, 119, 6, 0);
+    box-shadow: 0 0 0 0 rgba(158, 107, 39, 0);
   }
 }
 
 .fs-amber-pulse,
 .cmd-amber-lock-pulse {
   animation: amberPulseGlow 1.2s ease-in-out 2;
-  border-color: #D97706 !important;
+  border-color: #9E6B27 !important;
 }
 
 /* ============================================================================
@@ -3226,7 +3999,7 @@
   display: none;
   align-items: flex-end;
   justify-content: center;
-  background: rgba(15, 23, 42, 0.44);
+  background: rgba(25, 25, 24, 0.36);
   backdrop-filter: blur(5px);
   -webkit-backdrop-filter: blur(5px);
 }
@@ -3244,13 +4017,13 @@
 #quickBottomSheet {
   width: min(860px, 96vw);
   max-height: 82vh;
-  background: rgba(255, 255, 255, 0.97);
+  background: rgba(255, 255, 255, 0.98);
   backdrop-filter: blur(24px);
   -webkit-backdrop-filter: blur(24px);
-  border: 1px solid var(--border-light, #DEDCD3);
+  border: 1px solid var(--border-strong, #C5C2B7);
   border-bottom: none;
   border-radius: 22px 22px 0 0;
-  box-shadow: 0 -18px 54px rgba(15, 23, 42, 0.24);
+  box-shadow: 0 -18px 54px rgba(25, 25, 24, 0.18);
   display: flex;
   flex-direction: column;
   overflow: hidden;
@@ -3493,8 +4266,8 @@
   justify-content: space-between;
   gap: 12px;
   padding: 9px 22px;
-  background: #141E2B;
-  color: #F8FAFC;
+  background: #1E252D;
+  color: #FAF9F6;
   font-size: 12px;
 }
 
@@ -3508,7 +4281,6 @@
   max-width: 420px;
 }
 
-/* 左側歷史紀錄列表上的 [速覽] 微型按鈕 */
 .qs-sidebar-peek-btn {
   border: 1px solid var(--border-light, #DEDCD3);
   background: var(--bg-panel, #FFFFFF);
@@ -3538,7 +4310,7 @@
   display: none;
   align-items: flex-start;
   justify-content: center;
-  background: rgba(10, 16, 28, 0.46);
+  background: rgba(25, 25, 24, 0.38);
   backdrop-filter: blur(6px);
   -webkit-backdrop-filter: blur(6px);
 }
@@ -3552,11 +4324,11 @@
   width: min(680px, 94vw);
   max-height: 76vh;
   border-radius: 18px;
-  background: rgba(255, 255, 255, 0.96);
-  backdrop-filter: blur(26px) saturate(170%);
-  -webkit-backdrop-filter: blur(26px) saturate(170%);
-  border: 1px solid rgba(25, 25, 24, 0.14);
-  box-shadow: 0 28px 70px -12px rgba(10, 16, 28, 0.38), inset 0 1px 0 #FFFFFF;
+  background: rgba(255, 255, 255, 0.98);
+  backdrop-filter: blur(26px) saturate(160%);
+  -webkit-backdrop-filter: blur(26px) saturate(160%);
+  border: 1px solid var(--border-strong, #C5C2B7);
+  box-shadow: 0 26px 64px -12px rgba(25, 25, 24, 0.24), inset 0 1px 0 #FFFFFF;
   display: flex;
   flex-direction: column;
   overflow: hidden;
@@ -3602,7 +4374,7 @@
 }
 
 .cmd-clear-btn {
-  border: none;
+  border: 1px solid var(--border-light, #DEDCD3);
   background: var(--bg-subtle, #FAF9F6);
   color: var(--text-secondary, #5A5955);
   font-size: 11.5px;
@@ -3728,8 +4500,9 @@
 }
 
 .cmd-hl {
-  background: #FDE68A;
-  color: #78350F;
+  background: #FBF5EA;
+  color: #8A581B;
+  border-bottom: 1.5px solid #9E6B27;
   padding: 0 2px;
   border-radius: 3px;
   font-weight: 700;
@@ -3748,24 +4521,47 @@
   flex-wrap: wrap;
 }
 
-@media (max-width: 900px) {
-  .spatial-layer {
-    padding: 74px 16px 24px 16px;
+@media (max-width: 1080px) {
+  .sp-topbar {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: space-between;
   }
-  #spatialDepthRail {
-    display: none;
+
+  .sp-cmd-searchbar {
+    width: min(300px, 46vw);
   }
-  .sp-orb-arrow {
-    display: none;
-  }
-  .sp-card {
-    width: 88vw;
-    height: 368px;
-    padding: 20px;
+
+  .sp-l0-kpi-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
 
-  </style>
+@media (max-width: 900px) {
+  .spatial-layer {
+    padding: 76px 16px 24px 16px;
+  }
+
+  #spatialDepthRail {
+    display: none;
+  }
+
+  .sp-orb-arrow {
+    display: none;
+  }
+
+  .sp-card {
+    width: 90vw;
+    height: 392px;
+    padding: 18px 20px;
+  }
+
+  .sp-launch-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+</style>
 </head>
 
 <body>
@@ -13735,102 +14531,137 @@ ${segLines || '(無逐字稿，請依上方現有摘要決議整理)'}`;
 
   <!-- 四大空間與極速指揮模組舞台與引擎 -->
 <!-- ============================================================================
-     空間化智慧會議控制中心 — 懸浮舞台與互動面板標記 (模組一、模組三、模組四)
-     模組二 (#filmstripBar) 與頂部控制項由 spatial_suite_module.js 動態掛載至工作台對應位置
+     空間化智慧會議控制中心 — 極簡北歐四層 Z 軸舞台與互動面板標記
+     00 戰情總覽 · 01 專案舞台 (預設首頁) · 02 會議時間軸 · 03 單場工作艙
      ============================================================================ -->
 
-<!-- ==================== 模組一：3D 會議時光空間艙 (#spatialDeckOverlay) ==================== -->
-<div id="spatialDeckOverlay" data-spatial-theme="dark" aria-hidden="true">
+<!-- ==================== 模組一：極簡北歐 3D 空間舞台 (#spatialDeckOverlay) ==================== -->
+<div id="spatialDeckOverlay" data-spatial-theme="light" class="is-open" aria-hidden="false">
   <div class="sp-ambient-bg"></div>
   <div id="spatialHudGrid"></div>
 
-  <!-- 空間艙頂部懸浮導覽列 -->
+  <!-- 空間舞台頂部單列三區導覽列 (左：品牌與階層 · 中：極速搜尋 · 右：行動控制) -->
   <header class="sp-topbar">
     <div class="sp-topbar-left">
       <div class="sp-brand-badge">
-        <svg viewBox="0 0 24 24" aria-hidden="true">
-          <path d="M12 2L3 7l9 5 9-5-9-5z"></path>
-          <path d="M3 17l9 5 9-5"></path>
-          <path d="M3 12l9 5 9-5"></path>
-        </svg>
-        <span>3D 會議時光空間艙</span>
+        <img id="spBrandLogoImg" class="sp-brand-logo" alt="諾維拉 NOTTA" style="display:none;" />
+        <span class="sp-brand-text">諾維拉 NOTTA</span>
       </div>
       <nav id="spBreadcrumbs" class="sp-breadcrumbs" aria-label="空間階層導覽"></nav>
     </div>
 
-    <div class="sp-topbar-right">
-      <button type="button" id="spLiveRecPill" class="sp-live-rec-pill" title="背景錄製持續進行中，點擊返回標準工作台">
-        <span class="sp-live-dot"></span>
-        <span id="spLiveRecLabel">錄製中 00:00</span>
-      </button>
-
-      <button type="button" id="spSortOrderBtn" class="sp-top-btn" style="display:none;" title="切換會議時間軸排列順序">
-        <svg viewBox="0 0 24 24" aria-hidden="true">
-          <path d="M7 4v16"></path>
-          <path d="M3 8l4-4 4 4"></path>
-          <path d="M17 20V4"></path>
-          <path d="M13 16l4 4 4-4"></path>
-        </svg>
-        <span id="spSortOrderLabel">最新會議在前</span>
-      </button>
-
-      <button type="button" id="spatialThemeToggleBtn" class="sp-top-btn" title="切換深色星空科技艙與淺色極簡霧面艙">
-        <svg viewBox="0 0 24 24" aria-hidden="true">
-          <circle cx="12" cy="12" r="4"></circle>
-          <path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"></path>
-        </svg>
-        <span id="spatialThemeLabel">淺色極簡艙</span>
-      </button>
-
-      <button type="button" id="spOpenCmdBtn" class="sp-top-btn" title="呼出全域極速指揮艙 (Ctrl+K 或空白鍵)">
+    <div class="sp-topbar-center">
+      <button type="button" id="spOpenCmdBtn" class="sp-cmd-searchbar" title="呼出全域極速指揮艙 (Ctrl+K 或空白鍵)">
         <svg viewBox="0 0 24 24" aria-hidden="true">
           <circle cx="11" cy="11" r="7"></circle>
           <path d="M20 20l-3.8-3.8"></path>
         </svg>
-        <span>極速指揮</span>
+        <span class="sp-cmd-search-text">搜尋全庫逐字稿、專案或輸入指令...</span>
+        <span class="cmd-kbd-badge">Ctrl+K</span>
+      </button>
+    </div>
+
+    <div class="sp-topbar-right">
+      <button type="button" id="spLiveRecPill" class="sp-live-rec-pill" title="背景錄製持續進行中，點擊下潛至 03 單場工作艙">
+        <span class="sp-live-dot"></span>
+        <span id="spLiveRecLabel">錄製中 00:00</span>
       </button>
 
-      <button type="button" id="spCloseDeckBtn" class="sp-top-btn is-primary" title="返回標準工作台 (Esc)">
-        <span>返回標準工作台</span>
+      <button type="button" id="spQuickRecBtn" class="sp-top-btn is-primary" title="立即進入工作艙並開始新錄音">
+        <span>● 立即新錄音</span>
+      </button>
+
+      <button type="button" id="spQuickVideoBtn" class="sp-top-btn" title="進入工作艙並開啟螢幕或視訊鏡頭側錄">
+        <svg viewBox="0 0 24 24" aria-hidden="true">
+          <rect x="2.5" y="5" width="14" height="14" rx="2.5"></rect>
+          <path d="M16.5 10l5-3v10l-5-3v-4z"></path>
+        </svg>
+        <span>螢幕錄影</span>
+      </button>
+
+      <button type="button" id="spOpenSettingsBtn" class="sp-top-btn" title="開啟系統設定、AI 金鑰與自訂詞庫">
+        <svg viewBox="0 0 24 24" aria-hidden="true">
+          <circle cx="12" cy="12" r="3"></circle>
+          <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09a1.65 1.65 0 0 0-1-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09a1.65 1.65 0 0 0 1.51-1 1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33h.08a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51h.08a1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82v.08a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
+        </svg>
+        <span>系統設定</span>
+      </button>
+
+      <button type="button" id="spatialThemeToggleBtn" class="sp-top-btn sp-theme-btn" title="切換極簡北歐淺色與暗房投影深色主題">
+        <svg viewBox="0 0 24 24" aria-hidden="true">
+          <circle cx="12" cy="12" r="4"></circle>
+          <path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"></path>
+        </svg>
+        <span id="spatialThemeLabel">暗房深色</span>
       </button>
     </div>
   </header>
 
-  <!-- 右側空間深度指示軌 -->
+  <!-- 右側四層 Z 軸空間深度軌 (#spatialDepthRail) -->
   <aside id="spatialDepthRail" aria-label="空間深度層級">
+    <button type="button" id="spDepthNode0" class="sp-depth-node" data-depth-target="0">
+      <span>00 戰情總覽</span>
+      <span class="sp-depth-pip"></span>
+    </button>
+    <div class="sp-depth-sep"></div>
     <button type="button" id="spDepthNode1" class="sp-depth-node is-active" data-depth-target="1">
-      <span>01 專案層</span>
+      <span>01 專案舞台</span>
       <span class="sp-depth-pip"></span>
     </button>
     <div class="sp-depth-sep"></div>
     <button type="button" id="spDepthNode2" class="sp-depth-node" data-depth-target="2">
-      <span>02 時間軸</span>
+      <span>02 會議時間軸</span>
       <span class="sp-depth-pip"></span>
     </button>
     <div class="sp-depth-sep"></div>
     <button type="button" id="spDepthNode3" class="sp-depth-node" data-depth-target="3">
-      <span>03 工作台</span>
+      <span>03 單場工作艙</span>
       <span class="sp-depth-pip"></span>
     </button>
   </aside>
 
   <!-- Z 軸多層攝影機世界 -->
   <div id="spCameraWorld" class="sp-camera-world">
-    <!-- 第 1 層：專案分類群組 3D 卡片流 -->
-    <section id="spLayerProjects" class="spatial-layer at-surface" aria-label="專案分類層">
+    <!-- 第 00 層：全域戰情與跨場次 AI 總覽台 -->
+    <section id="spLayerOverview" class="spatial-layer dived-past" aria-label="全域戰情總覽層">
+      <div id="spOverviewContainer" class="sp-l0-hub"></div>
+    </section>
+
+    <!-- 第 01 層：預設首頁 120Hz 專案分類與新會議發射艙 3D 卡片流 -->
+    <section id="spLayerProjects" class="spatial-layer at-surface" aria-label="專案舞台層">
       <div class="sp-stage-row">
-        <button type="button" id="spProjPrevBtn" class="sp-orb-arrow" aria-label="上一個專案分類">
+        <button type="button" id="spProjPrevBtn" class="sp-orb-arrow" aria-label="上一張專案卡片">
           <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 18l-6-6 6-6"></path></svg>
         </button>
         <div id="spProjViewport" class="sp-deck-vp"></div>
-        <button type="button" id="spProjNextBtn" class="sp-orb-arrow" aria-label="下一個專案分類">
+        <button type="button" id="spProjNextBtn" class="sp-orb-arrow" aria-label="下一張專案卡片">
           <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 18l6-6-6-6"></path></svg>
         </button>
       </div>
     </section>
 
-    <!-- 第 2 層：歷次會議 3D 時間軸卡片流 ＋ 底部雷射時間滑軌 -->
+    <!-- 第 02 層：歷次會議 3D 時間軸卡片流 ＋ 頂部篩選排序軌 ＋ 底部雷射時間滑軌 -->
     <section id="spLayerSessions" class="spatial-layer below-surface" aria-label="歷次會議時間軸層">
+      <div id="spL2ToolbarGroup" class="sp-l2-toolbar-group">
+        <input
+          type="text"
+          id="spL2FilterInput"
+          class="sp-l2-filter-input"
+          autocomplete="off"
+          spellcheck="false"
+          placeholder="篩選此時間軸場次關鍵字..."
+          title="輸入關鍵字即時篩選會議時間軸卡片"
+        />
+        <button type="button" id="spSortOrderBtn" class="sp-top-btn" title="切換會議時間軸排列順序">
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M7 4v16"></path>
+            <path d="M3 8l4-4 4 4"></path>
+            <path d="M17 20V4"></path>
+            <path d="M13 16l4 4 4-4"></path>
+          </svg>
+          <span id="spSortOrderLabel">最新在前</span>
+        </button>
+      </div>
       <div class="sp-stage-row">
         <button type="button" id="spSessPrevBtn" class="sp-orb-arrow" aria-label="上一場會議">
           <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 18l-6-6 6-6"></path></svg>
@@ -13848,9 +14679,9 @@ ${segLines || '(無逐字稿，請依上方現有摘要決議整理)'}`;
   <div id="spBottomHudHint" class="sp-bottom-hud-hint">
     <span>← → 左右翻閱卡片</span>
     <span>◆</span>
-    <span>↓ / Enter 下潛或載入工作台</span>
+    <span>↑ ↓ 切換 00 戰情總覽 · 01 專案舞台 · 02 會議時間軸</span>
     <span>◆</span>
-    <span>↑ / Esc 返回上層</span>
+    <span>Enter 下潛或進入 03 單場工作艙</span>
     <span>◆</span>
     <span>空白鍵 呼出極速指揮艙</span>
   </div>
@@ -13873,7 +14704,7 @@ ${segLines || '(無逐字稿，請依上方現有摘要決議整理)'}`;
       </div>
       <div class="qs-head-actions">
         <button type="button" id="qsEnterWorkbenchBtn" class="btn btn-primary" style="font-size:12px; padding:6px 12px;">
-          完整載入至工作台 ↗
+          完整載入至工作艙 ↗
         </button>
         <button type="button" id="qsCloseBtn" class="btn" style="font-size:13px; padding:5px 10px;" title="關閉速覽面板 (Esc)">
           ×
@@ -13938,7 +14769,7 @@ ${segLines || '(無逐字稿，請依上方現有摘要決議整理)'}`;
   </div>
 </div>
 
-  <script id="spatialSuiteScript">
+<script id="spatialSuiteScript">
 /* ============================================================================
    空間化智慧會議控制中心 — 四大科技模組無侵入掛載腳本 (spatial_suite_module.js)
    模組一：3D 會議時光空間艙 ＋ 120Hz 臨界阻尼彈簧物理引擎 ＋ 雷射時間滑軌
@@ -14360,13 +15191,16 @@ ${segLines || '(無逐字稿，請依上方現有摘要決議整理)'}`;
   window.SpatialSpringTrack = SpatialSpringTrack;
 
   /* --------------------------------------------------------------------------
-     四、模組一：3D 會議時光空間艙狀態與渲染邏輯
+     四、模組一：極簡北歐四層 Z 軸 3D 空間舞台狀態與渲染邏輯
+     00 戰情總覽 · 01 專案舞台 (預設首頁) · 02 會議時間軸 · 03 單場工作艙
      -------------------------------------------------------------------------- */
-  const SPATIAL_THEME_KEY = 'novera_notta_spatial_theme';
-  let _spIsOpen = false;
-  let _spDepth = 1; // 1: 專案分類層, 2: 歷次會議時間軸層
-  let _spTheme = 'dark';
-  let _spSortAsc = false; // false: 最新會議在前, true: 依時間先後
+  const SPATIAL_THEME_KEY = 'novera_notta_nordic_spatial_theme';
+  let _spIsOpen = true;
+  let _spDepth = 1; // 0: 戰情總覽, 1: 專案舞台(預設首頁), 2: 會議時間軸
+  let _spTheme = 'light'; // 預設極簡北歐淺色
+  let _spSortAsc = false; // false: 最新在前, true: 依時間先後
+  let _spL2FilterQuery = '';
+  let _spLaunchDraftTag = '';
   let _spSelectedTagKey = '__ALL__';
   let _spSelectedTagTitle = '全部會議總覽';
   let _spProjectGroups = [];
@@ -14392,6 +15226,18 @@ ${segLines || '(無逐字稿，請依上方現有摘要決議整理)'}`;
 
   function getActiveSpatialTrack() {
     return _spDepth === 2 ? _sessTrack : _projTrack;
+  }
+
+  function syncSpatialBrandLogo() {
+    const targetImg = document.getElementById('spBrandLogoImg');
+    if (!targetImg) return;
+    const sidebarLogo = document.querySelector('.sidebar-brand img.brand-logo-img, .sidebar-brand img');
+    const favicon = document.querySelector('link[rel="icon"]');
+    const src = (sidebarLogo && sidebarLogo.getAttribute('src')) || (favicon && favicon.getAttribute('href')) || '';
+    if (src) {
+      targetImg.setAttribute('src', src);
+      targetImg.style.display = 'block';
+    }
   }
 
   function renderCoverFlowTransform(cardEls, pos, layerDepth) {
@@ -14491,7 +15337,7 @@ ${segLines || '(無逐字稿，請依上方現有摘要決議整理)'}`;
       }
     }
     if (bullets.length === 0) {
-      bullets.push('點擊進入標準工作台檢視完整內容或執行 AI 結構化紀錄提煉');
+      bullets.push('點擊進入單場工作艙檢視完整內容或執行 AI 結構化紀錄提煉');
     }
     return bullets.slice(0, maxCount);
   }
@@ -14508,11 +15354,6 @@ ${segLines || '(無逐字稿，請依上方現有摘要決議整理)'}`;
 
   function buildProjectGroupsData() {
     const allSessions = collectEffectiveSessions();
-    if (allSessions.length === 0) {
-      _spProjectGroups = [];
-      return;
-    }
-
     const sortedAll = allSessions.slice().sort(function (a, b) {
       return (Number(b.updatedAt) || 0) - (Number(a.updatedAt) || 0);
     });
@@ -14547,10 +15388,13 @@ ${segLines || '(無逐字稿，請依上方現有摘要決議整理)'}`;
         if (hasSnap) snapSessionCount += 1;
       }
 
-      const latest = list[0];
-      const latestHighlights = extractSessionHighlights(latest, 2);
+      const latest = list[0] || null;
+      const latestHighlights = latest
+        ? extractSessionHighlights(latest, 2)
+        : ['開始錄音、螢幕側錄或匯入影音檔後，系統將自動依專案標籤聚合成 3D 卡片流與雷射時間軸。'];
 
       return {
+        isLaunchpad: false,
         tagKey: key,
         title: label,
         badgeCode: badgeCode,
@@ -14558,8 +15402,8 @@ ${segLines || '(無逐字稿，請依上方現有摘要決議整理)'}`;
         sessionCount: list.length,
         totalDurSec: totalDurSec,
         todoStats: todoStats,
-        latestDate: latest.dateStr || '近期更新',
-        latestTitle: latest.title || '未命名會議紀錄',
+        latestDate: latest ? (latest.dateStr || '近期更新') : '尚無紀錄',
+        latestTitle: latest ? (latest.title || '未命名會議紀錄') : '準備迎接第一場智慧會議',
         latestSummary: latestHighlights.join('；'),
         speakerCount: speakerSet.size,
         snapSessionCount: snapSessionCount
@@ -14567,6 +15411,18 @@ ${segLines || '(無逐字稿，請依上方現有摘要決議整理)'}`;
     };
 
     const groups = [];
+    // Card 0 永遠為「新會議快速發射艙」
+    groups.push({
+      isLaunchpad: true,
+      tagKey: '__LAUNCHPAD__',
+      title: '◆ 新會議快速發射艙',
+      badgeCode: 'LAUNCH · 00',
+      sessions: sortedAll,
+      sessionCount: sortedAll.length,
+      projectCount: buckets.size
+    });
+
+    // Card 1 為「全部會議總覽」（即使目前 0 場會議也呈現乾淨北歐導引卡，確保首頁即見 3D 層次景深）
     groups.push(makeGroupRecord('__ALL__', '◆ 全部會議總覽', sortedAll, 'ALL · 總覽'));
 
     let idx = 1;
@@ -14600,90 +15456,457 @@ ${segLines || '(無逐字稿，請依上方現有摘要決議整理)'}`;
     );
   }
 
+  function prepareStudioSessionWithTag(tagText) {
+    const cleanTag = String(tagText || '').trim();
+    const curSegs = getHostTranscriptSegments();
+    const hasExisting = curSegs.length > 0 || Boolean(getHostMediaBlob());
+    if (hasExisting && !getHostIsRecording() && typeof window.createNewSession === 'function') {
+      window.createNewSession();
+    }
+    if (cleanTag) {
+      setHostProjectTag(cleanTag);
+    }
+  }
+
+  function executeLaunchpadAction(actionType, tagValue) {
+    const cleanTag = String(tagValue || '').trim();
+    _spLaunchDraftTag = cleanTag;
+
+    if (actionType === 'calendar') {
+      if (cleanTag) setHostProjectTag(cleanTag);
+      probeAndInvokeCapability(['openGoogleHubModal'], [], '找不到 Google 日曆連動視窗');
+      return;
+    }
+
+    if (actionType === 'studio') {
+      if (cleanTag) setHostProjectTag(cleanTag);
+      closeSpatialDeckMode();
+      return;
+    }
+
+    if (actionType === 'audio') {
+      prepareStudioSessionWithTag(cleanTag);
+      closeSpatialDeckMode();
+      if (!getHostIsRecording()) {
+        probeAndInvokeCapability(['toggleAudioRecording'], ['btnAudioRec'], '找不到錄音控制按鈕');
+      }
+      return;
+    }
+
+    if (actionType === 'video') {
+      prepareStudioSessionWithTag(cleanTag);
+      closeSpatialDeckMode();
+      probeAndInvokeCapability(['openVideoRecordModal'], ['btnVideoRec'], '找不到螢幕與鏡頭錄影入口');
+      return;
+    }
+
+    if (actionType === 'import') {
+      prepareStudioSessionWithTag(cleanTag);
+      closeSpatialDeckMode();
+      const fileInp = document.getElementById('mediaFileInput');
+      if (fileInp && typeof fileInp.click === 'function') {
+        fileInp.click();
+      } else {
+        notifyToast('請於工作艙右上角點擊匯入影音檔');
+      }
+    }
+  }
+
+  function renderSpatialLayer0Overview() {
+    const container = document.getElementById('spOverviewContainer');
+    if (!container) return;
+
+    const allSessions = collectEffectiveSessions();
+    const todoStats = computeTodoStatsForSessions(allSessions);
+    const projectTags = new Set();
+    let totalDurSec = 0;
+    let totalStars = 0;
+    let mediaSessionCount = 0;
+    const openTodoEntries = [];
+
+    for (let i = 0; i < allSessions.length; i++) {
+      const s = allSessions[i];
+      const tag = String(s.projectTag || '').trim() || '未分類會議';
+      projectTags.add(tag);
+      totalDurSec += estimateSessionDurationSec(s);
+      const segs = Array.isArray(s.transcriptSegments) ? s.transcriptSegments : [];
+      let hasSnap = s.mediaType === 'video';
+      for (let k = 0; k < segs.length; k++) {
+        if (segs[k] && segs[k].starred) totalStars += 1;
+        if (getSegSnapshotUrl(segs[k])) hasSnap = true;
+      }
+      if (hasSnap) mediaSessionCount += 1;
+
+      const items = parseSessionActionItems(s);
+      for (let tIdx = 0; tIdx < items.length; tIdx++) {
+        if (!items[tIdx].done && openTodoEntries.length < 5) {
+          openTodoEntries.push({
+            sessionId: s.id,
+            sessionTitle: s.title || '未命名會議紀錄',
+            projectTag: tag,
+            todoIndex: tIdx,
+            task: items[tIdx].task
+          });
+        }
+      }
+    }
+
+    const totalMin = Math.round(totalDurSec / 60);
+    const durDisplay = totalMin >= 60
+      ? (Math.floor(totalMin / 60) + 'h ' + (totalMin % 60) + 'm')
+      : (totalMin + ' 分鐘');
+
+    let todosRowsHtml = '';
+    if (openTodoEntries.length === 0) {
+      todosRowsHtml =
+        '<div class="sp-l0-empty-todos">' +
+          (allSessions.length === 0
+            ? '目前尚無會議紀錄，返回 01 專案舞台即可從快速發射艙啟動第一場錄製。'
+            : '太棒了！目前所有會議場次之待辦事項皆已結清。') +
+        '</div>';
+    } else {
+      todosRowsHtml =
+        '<div class="sp-l0-todo-list">' +
+          openTodoEntries.map(function (entry) {
+            return (
+              '<div class="sp-l0-todo-row">' +
+                '<label class="sp-l0-todo-main" style="cursor:pointer;">' +
+                  '<input type="checkbox" class="qs-todo-check" data-l0-todo-sid="' + safeEscapeHtml(entry.sessionId) + '" data-l0-todo-idx="' + entry.todoIndex + '" />' +
+                  '<span class="sp-chip" style="flex-shrink:0;">' + safeEscapeHtml(entry.projectTag) + '</span>' +
+                  '<span class="sp-l0-todo-task">' + safeEscapeHtml(entry.task) + '</span>' +
+                '</label>' +
+                '<div style="display:flex; align-items:center; gap:8px; flex-shrink:0;">' +
+                  '<span class="sp-l0-todo-session">' + safeEscapeHtml(entry.sessionTitle) + '</span>' +
+                  '<button type="button" class="sp-act-btn" style="height:26px; padding:0 9px;" data-l0-peek-sid="' + safeEscapeHtml(entry.sessionId) + '">速覽</button>' +
+                '</div>' +
+              '</div>'
+            );
+          }).join('') +
+        '</div>';
+    }
+
+    container.innerHTML =
+      '<div class="sp-l0-header">' +
+        '<div>' +
+          '<div class="sp-l0-eyebrow">LAYER 00 · EXECUTIVE OVERVIEW</div>' +
+          '<div class="sp-l0-heading">全域會議戰情與跨場次記憶總覽</div>' +
+        '</div>' +
+        '<div class="sp-l0-sub">向下滾輪或點擊深度軌即可返回 01 專案舞台</div>' +
+      '</div>' +
+      '<div class="sp-l0-kpi-grid">' +
+        '<div class="sp-l0-kpi-card">' +
+          '<div class="sp-l0-kpi-label"><span>累計會議場次</span><span>◆</span></div>' +
+          '<div class="sp-l0-kpi-val">' + allSessions.length + '</div>' +
+          '<div class="sp-l0-kpi-foot">涵蓋 ' + projectTags.size + ' 個專案分類</div>' +
+        '</div>' +
+        '<div class="sp-l0-kpi-card">' +
+          '<div class="sp-l0-kpi-label"><span>累計收錄時長</span><span>◆</span></div>' +
+          '<div class="sp-l0-kpi-val">' + safeEscapeHtml(durDisplay) + '</div>' +
+          '<div class="sp-l0-kpi-foot">含視訊或截圖場次 ' + mediaSessionCount + ' 場</div>' +
+        '</div>' +
+        '<div class="sp-l0-kpi-card">' +
+          '<div class="sp-l0-kpi-label"><span>全庫待辦完成率</span><span>◆</span></div>' +
+          '<div class="sp-l0-kpi-val is-pine">' + todoStats.pct + '%</div>' +
+          '<div class="sp-l0-kpi-foot">已完成 ' + todoStats.done + ' / 共 ' + todoStats.total + ' 項</div>' +
+        '</div>' +
+        '<div class="sp-l0-kpi-card">' +
+          '<div class="sp-l0-kpi-label"><span>未結追蹤事項</span><span>◆</span></div>' +
+          '<div class="sp-l0-kpi-val is-amber">' + todoStats.open + '</div>' +
+          '<div class="sp-l0-kpi-foot">全庫星號重點共 ' + totalStars + ' 處</div>' +
+        '</div>' +
+      '</div>' +
+      '<div class="sp-l0-action-bar">' +
+        '<button type="button" class="sp-l0-btn is-primary" id="spL0BackStageBtn">↓ 返回 01 專案舞台</button>' +
+        '<button type="button" class="sp-l0-btn" id="spL0ExportAllXlsxBtn">匯出跨專案全部待辦管制表 (.xlsx)</button>' +
+        '<button type="button" class="sp-l0-btn" id="spL0OpenCalendarBtn">Google 日曆同步與預載</button>' +
+        '<button type="button" class="sp-l0-btn is-push-right" id="spL0OpenSettingsBtn">系統設定 · AI 金鑰與詞庫</button>' +
+      '</div>' +
+      '<div class="sp-l0-ai-box">' +
+        '<div class="sp-l0-sec-head">' +
+          '<span class="sp-l0-sec-title">◆ 跨場次 AI 智慧記憶庫直通提問</span>' +
+          '<span class="sp-l0-sec-hint">自動檢索全庫逐字稿、決議與待辦並跳轉對談面板</span>' +
+        '</div>' +
+        '<div class="sp-l0-ai-row">' +
+          '<input type="text" id="spL0AiInput" autocomplete="off" placeholder="輸入跨會議問題（如：請彙整近期各專案未結待辦與關鍵時程決議）..." />' +
+          '<button type="button" class="sp-l0-btn is-primary" id="spL0AiSubmitBtn">送出 AI 檢索 ↗</button>' +
+        '</div>' +
+      '</div>' +
+      '<div class="sp-l0-todos-box">' +
+        '<div class="sp-l0-sec-head">' +
+          '<span class="sp-l0-sec-title">◆ 跨專案優先未結待辦速勾</span>' +
+          '<span class="sp-l0-sec-hint">勾選後即時同步寫回原場次紀錄與匯出報表</span>' +
+        '</div>' +
+        todosRowsHtml +
+      '</div>';
+
+    const backBtn = container.querySelector('#spL0BackStageBtn');
+    if (backBtn) backBtn.addEventListener('click', function () { diveSpatialLayerTo(1); });
+
+    const xlsxBtn = container.querySelector('#spL0ExportAllXlsxBtn');
+    if (xlsxBtn) {
+      xlsxBtn.addEventListener('click', function () {
+        if (typeof window.exportActionItemsXlsx === 'function') {
+          window.exportActionItemsXlsx('multi', '__ALL__');
+        } else {
+          probeAndInvokeCapability(['openExportModal'], [], '找不到匯出功能');
+        }
+      });
+    }
+
+    const calBtn = container.querySelector('#spL0OpenCalendarBtn');
+    if (calBtn) {
+      calBtn.addEventListener('click', function () {
+        probeAndInvokeCapability(['openGoogleHubModal'], [], '找不到 Google 日曆連動視窗');
+      });
+    }
+
+    const setBtn = container.querySelector('#spL0OpenSettingsBtn');
+    if (setBtn) {
+      setBtn.addEventListener('click', function () {
+        probeAndInvokeCapability(['openSettingsModal'], [], '找不到系統設定視窗');
+      });
+    }
+
+    const aiInput = container.querySelector('#spL0AiInput');
+    const aiBtn = container.querySelector('#spL0AiSubmitBtn');
+    const triggerL0Ai = function () {
+      const q = aiInput ? aiInput.value.trim() : '';
+      if (!q) {
+        notifyToast('請先輸入欲檢索的跨場次問題');
+        if (aiInput) aiInput.focus();
+        return;
+      }
+      executeCmdAskAi(q);
+    };
+    if (aiBtn) aiBtn.addEventListener('click', triggerL0Ai);
+    if (aiInput) {
+      aiInput.addEventListener('keydown', function (ev) {
+        if (ev.key === 'Enter') {
+          ev.preventDefault();
+          triggerL0Ai();
+        }
+      });
+    }
+
+    const checks = container.querySelectorAll('[data-l0-todo-sid]');
+    for (let i = 0; i < checks.length; i++) {
+      checks[i].addEventListener('change', function () {
+        const sid = this.getAttribute('data-l0-todo-sid');
+        const tIdx = Number(this.getAttribute('data-l0-todo-idx'));
+        const targetSess = findTargetSessionRecord(sid);
+        if (!targetSess) return;
+        const parsed = parseSessionActionItems(targetSess);
+        if (parsed[tIdx]) {
+          parsed[tIdx].done = Boolean(this.checked);
+          persistSessionTodosUpdate(targetSess, parsed);
+          notifyToast('已將待辦標記為完成');
+        }
+      });
+    }
+
+    const peekBtns = container.querySelectorAll('[data-l0-peek-sid]');
+    for (let i = 0; i < peekBtns.length; i++) {
+      peekBtns[i].addEventListener('click', function () {
+        const sid = this.getAttribute('data-l0-peek-sid');
+        openSessionQuickSheet(sid, 'todos');
+      });
+    }
+  }
+
   function renderSpatialLayer1Projects(preserveIndex) {
     const vp = document.getElementById('spProjViewport');
     if (!vp) return;
+
+    const prevLaunchInput = document.getElementById('spLaunchTagInput');
+    if (prevLaunchInput && typeof prevLaunchInput.value === 'string') {
+      _spLaunchDraftTag = prevLaunchInput.value;
+    }
+
     buildProjectGroupsData();
     vp.innerHTML = '';
     _spProjCardEls = [];
 
-    if (_spProjectGroups.length === 0) {
-      const emptyEl = document.createElement('div');
-      emptyEl.className = 'sp-empty-card';
-      emptyEl.innerHTML =
-        '<div class="sp-chip">3D 空間艙待命中</div>' +
-        '<div class="sp-card-title" style="font-size:19px;">目前尚無歷史會議紀錄</div>' +
-        '<div class="sp-mid-desc" style="text-align:center;">開始第一場音訊錄製、視訊側錄或匯入影音檔案後，系統將自動依專案標籤聚合成 3D 卡片流與雷射時間軸。</div>' +
-        '<button type="button" class="sp-top-btn is-primary" id="spEmptyStartBtn" style="margin-top:6px;">返回工作台開始第一場錄製</button>';
-      vp.appendChild(emptyEl);
-      const btn = emptyEl.querySelector('#spEmptyStartBtn');
-      if (btn) {
-        btn.addEventListener('click', function () {
-          closeSpatialDeckMode();
-        });
-      }
-      _projTrack.setBounds(0);
-      updateSpatialNavButtons();
-      renderBreadcrumbs();
-      return;
-    }
-
     for (let i = 0; i < _spProjectGroups.length; i++) {
       const grp = _spProjectGroups[i];
       const card = document.createElement('article');
-      card.className = 'sp-card';
+      card.className = grp.isLaunchpad ? 'sp-card is-launchpad' : 'sp-card';
       card.setAttribute('data-proj-idx', String(i));
       card.setAttribute('data-tag-key', grp.tagKey);
 
-      const durMinutes = Math.max(1, Math.round(grp.totalDurSec / 60));
-      const durLabel = grp.totalDurSec > 0 ? ('累計約 ' + durMinutes + ' 分鐘') : '隨時可新增錄製';
-      const ringCap = '共 ' + grp.sessionCount + ' 場 · ' + grp.todoStats.total + ' 項待辦';
-      const openTodoChip = grp.todoStats.open > 0
-        ? '<span class="sp-chip is-amber">未結待辦 ' + grp.todoStats.open + '</span>'
-        : '<span class="sp-chip is-muted">待辦均已結清</span>';
-
-      card.innerHTML =
-        '<div class="sp-card-glare"></div>' +
-        '<div class="sp-card-top">' +
-          '<div style="min-width:0; flex:1;">' +
-            '<div class="sp-badge-row">' +
-              '<span class="sp-chip">' + safeEscapeHtml(grp.badgeCode) + '</span>' +
-              '<span class="sp-chip is-muted">最近更新 ' + safeEscapeHtml(grp.latestDate) + '</span>' +
-              openTodoChip +
+      if (grp.isLaunchpad) {
+        const draftVal = _spLaunchDraftTag || getHostProjectTag() || '';
+        card.innerHTML =
+          '<div class="sp-card-glare"></div>' +
+          '<div class="sp-card-top">' +
+            '<div style="min-width:0; flex:1;">' +
+              '<div class="sp-badge-row">' +
+                '<span class="sp-chip">' + safeEscapeHtml(grp.badgeCode) + '</span>' +
+                '<span class="sp-chip is-muted">累計 ' + grp.sessionCount + ' 場會議 · ' + grp.projectCount + ' 個專案</span>' +
+              '</div>' +
+              '<div class="sp-card-title">' + safeEscapeHtml(grp.title) + '</div>' +
+              '<div class="sp-card-sub">指定專案標籤並一鍵啟動錄音、螢幕側錄、影音匯入或日曆預載</div>' +
             '</div>' +
-            '<div class="sp-card-title">' + safeEscapeHtml(grp.title) + '</div>' +
-            '<div class="sp-card-sub">累計 ' + grp.sessionCount + ' 場會議 · ' + durLabel + '</div>' +
           '</div>' +
-          renderRingMiniHtml(grp.todoStats.pct, ringCap) +
-        '</div>' +
-        '<div class="sp-mid-box">' +
-          '<div class="sp-mid-label">' +
-            '<span>最近一場核心結論</span>' +
-            '<span>' + safeEscapeHtml(grp.latestDate) + '</span>' +
+          '<div class="sp-launch-body">' +
+            '<div class="sp-launch-tag-row">' +
+              '<label class="sp-launch-tag-label" for="spLaunchTagInput">專案分類標籤</label>' +
+              '<input type="text" id="spLaunchTagInput" list="projectTagOptions" autocomplete="off" ' +
+                'placeholder="選填，例如：Q4 產品規劃、系統改版專案..." value="' + safeEscapeHtml(draftVal) + '" />' +
+            '</div>' +
+            '<div class="sp-launch-grid">' +
+              '<button type="button" class="sp-launch-btn is-hero" data-launch-act="audio">' +
+                '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="2" width="6" height="12" rx="3"></rect><path d="M5 10a7 7 0 0 0 14 0"></path><path d="M12 17v5M8 22h8"></path></svg>' +
+                '<span>開始現場錄音</span>' +
+              '</button>' +
+              '<button type="button" class="sp-launch-btn" data-launch-act="video">' +
+                '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="2.5" y="5" width="14" height="14" rx="2.5"></rect><path d="M16.5 10l5-3v10l-5-3v-4z"></path></svg>' +
+                '<span>螢幕 / 鏡頭錄影</span>' +
+              '</button>' +
+              '<button type="button" class="sp-launch-btn" data-launch-act="import">' +
+                '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg>' +
+                '<span>匯入音訊或影片</span>' +
+              '</button>' +
+            '</div>' +
           '</div>' +
-          '<div class="sp-mid-title">' + safeEscapeHtml(grp.latestTitle) + '</div>' +
-          '<div class="sp-mid-desc">' + safeEscapeHtml(grp.latestSummary) + '</div>' +
-        '</div>' +
-        '<div class="sp-card-foot">' +
-          '<div class="sp-foot-meta">' +
-            '<span>參與講者 ' + grp.speakerCount + ' 位</span>' +
-            '<span>·</span>' +
-            '<span>含畫面截圖 ' + grp.snapSessionCount + ' 場</span>' +
-          '</div>' +
-          '<span class="sp-dive-hint">點擊或滾輪下潛檢視歷次會議 ›</span>' +
-        '</div>';
+          '<div class="sp-card-foot">' +
+            '<div class="sp-card-actions is-spread">' +
+              '<button type="button" class="sp-act-btn" data-launch-act="calendar">Google 日曆預載</button>' +
+              '<button type="button" class="sp-act-btn is-enter" data-launch-act="studio">進入單場工作艙 ›</button>' +
+            '</div>' +
+          '</div>';
 
-      (function (cardIndex) {
-        card.addEventListener('click', function (ev) {
-          if (_spGestureMoved) return;
-          ev.stopPropagation();
-          if (Math.abs(_projTrack.pos - cardIndex) > 0.38) {
-            _projTrack.goTo(cardIndex, false);
-          } else {
-            diveSpatialLayer(1);
+        (function (cardIndex) {
+          const tagInp = card.querySelector('#spLaunchTagInput');
+          if (tagInp) {
+            tagInp.addEventListener('input', function () {
+              _spLaunchDraftTag = this.value;
+            });
+            tagInp.addEventListener('click', function (ev) {
+              ev.stopPropagation();
+              if (Math.abs(_projTrack.pos - cardIndex) > 0.38) {
+                _projTrack.goTo(cardIndex, false);
+              }
+            });
           }
-        });
-      })(i);
+
+          const actBtns = card.querySelectorAll('[data-launch-act]');
+          for (let b = 0; b < actBtns.length; b++) {
+            actBtns[b].addEventListener('click', function (ev) {
+              ev.stopPropagation();
+              const act = this.getAttribute('data-launch-act');
+              const curVal = tagInp ? tagInp.value : _spLaunchDraftTag;
+              executeLaunchpadAction(act, curVal);
+            });
+          }
+
+          card.addEventListener('click', function (ev) {
+            if (_spGestureMoved) return;
+            if (ev.target && ev.target.closest && ev.target.closest('button, input')) return;
+            ev.stopPropagation();
+            if (Math.abs(_projTrack.pos - cardIndex) > 0.38) {
+              _projTrack.goTo(cardIndex, false);
+            }
+          });
+        })(i);
+      } else {
+        const durMinutes = Math.max(1, Math.round(grp.totalDurSec / 60));
+        const durLabel = grp.totalDurSec > 0 ? ('累計約 ' + durMinutes + ' 分鐘') : '隨時可新增錄製';
+        const ringCap = '共 ' + grp.sessionCount + ' 場 · ' + grp.todoStats.total + ' 項待辦';
+        const openTodoChip = grp.todoStats.open > 0
+          ? '<span class="sp-chip is-amber">未結待辦 ' + grp.todoStats.open + '</span>'
+          : '<span class="sp-chip is-muted">' + (grp.sessionCount > 0 ? '待辦均已結清' : '待建立紀錄') + '</span>';
+
+        const addInProjTag = grp.tagKey === '__ALL__' ? '' : grp.tagKey;
+
+        card.innerHTML =
+          '<div class="sp-card-glare"></div>' +
+          '<div class="sp-card-top">' +
+            '<div style="min-width:0; flex:1;">' +
+              '<div class="sp-badge-row">' +
+                '<span class="sp-chip">' + safeEscapeHtml(grp.badgeCode) + '</span>' +
+                '<span class="sp-chip is-muted">' + safeEscapeHtml(grp.latestDate) + '</span>' +
+                openTodoChip +
+              '</div>' +
+              '<div class="sp-card-title">' + safeEscapeHtml(grp.title) + '</div>' +
+              '<div class="sp-card-sub">累計 ' + grp.sessionCount + ' 場會議 · ' + durLabel + '</div>' +
+            '</div>' +
+            renderRingMiniHtml(grp.todoStats.pct, ringCap) +
+          '</div>' +
+          '<div class="sp-mid-box">' +
+            '<div class="sp-mid-label">' +
+              '<span>最近一場核心結論</span>' +
+              '<span>' + safeEscapeHtml(grp.latestDate) + '</span>' +
+            '</div>' +
+            '<div class="sp-mid-title">' + safeEscapeHtml(grp.latestTitle) + '</div>' +
+            '<div class="sp-mid-desc">' + safeEscapeHtml(grp.latestSummary) + '</div>' +
+          '</div>' +
+          '<div class="sp-card-foot">' +
+            '<div class="sp-card-actions">' +
+              '<button type="button" class="sp-act-btn" data-proj-new="' + safeEscapeHtml(addInProjTag) + '">新增場次 ＋</button>' +
+              '<button type="button" class="sp-act-btn" data-proj-xlsx="' + safeEscapeHtml(grp.tagKey) + '">匯出待辦 .xlsx</button>' +
+              '<button type="button" class="sp-act-btn is-enter" data-proj-dive="' + safeEscapeHtml(grp.tagKey) + '">' +
+                (grp.sessionCount > 0 ? '時間軸 (' + grp.sessionCount + ') ›' : '進入工作艙 ›') +
+              '</button>' +
+            '</div>' +
+          '</div>';
+
+        (function (cardIndex, grpRef) {
+          const newBtn = card.querySelector('[data-proj-new]');
+          if (newBtn) {
+            newBtn.addEventListener('click', function (ev) {
+              ev.stopPropagation();
+              const t = this.getAttribute('data-proj-new') || '';
+              prepareStudioSessionWithTag(t);
+              if (t) setHostProjectTag(t);
+              closeSpatialDeckMode();
+              notifyToast(t ? ('已切換至專案「' + t + '」新場次') : '已開啟新會議工作艙');
+            });
+          }
+
+          const xlsxBtn = card.querySelector('[data-proj-xlsx]');
+          if (xlsxBtn) {
+            xlsxBtn.addEventListener('click', function (ev) {
+              ev.stopPropagation();
+              const tKey = this.getAttribute('data-proj-xlsx') || '__ALL__';
+              if (typeof window.exportActionItemsXlsx === 'function') {
+                window.exportActionItemsXlsx('multi', tKey);
+              } else {
+                probeAndInvokeCapability(['openExportModal'], [], '找不到匯出視窗');
+              }
+            });
+          }
+
+          const diveBtn = card.querySelector('[data-proj-dive]');
+          if (diveBtn) {
+            diveBtn.addEventListener('click', function (ev) {
+              ev.stopPropagation();
+              if (grpRef.sessionCount <= 0) {
+                closeSpatialDeckMode();
+                return;
+              }
+              _spSelectedTagKey = grpRef.tagKey;
+              _spSelectedTagTitle = grpRef.title;
+              _projTrack.goTo(cardIndex, true);
+              diveSpatialLayerTo(2);
+            });
+          }
+
+          card.addEventListener('click', function (ev) {
+            if (_spGestureMoved) return;
+            if (ev.target && ev.target.closest && ev.target.closest('button, input')) return;
+            ev.stopPropagation();
+            if (Math.abs(_projTrack.pos - cardIndex) > 0.38) {
+              _projTrack.goTo(cardIndex, false);
+            } else if (grpRef.sessionCount > 0) {
+              _spSelectedTagKey = grpRef.tagKey;
+              _spSelectedTagTitle = grpRef.title;
+              diveSpatialLayerTo(2);
+            } else {
+              closeSpatialDeckMode();
+            }
+          });
+        })(i, grp);
+      }
 
       bindCardGlare(card);
       vp.appendChild(card);
@@ -14691,12 +15914,52 @@ ${segLines || '(無逐字稿，請依上方現有摘要決議整理)'}`;
     }
 
     _projTrack.setBounds(_spProjectGroups.length);
-    const nextIdx = preserveIndex
-      ? Math.max(0, Math.min(_spProjectGroups.length - 1, Math.round(_projTrack.target)))
-      : 0;
-    _projTrack.goTo(nextIdx, true);
+    let defaultStartIdx = 0;
+    // 若已有歷史會議且為初次進入，仍預設聚焦於 Card 0 發射艙或保留先前索引，右側自然露出專案卡片形成 3D CoverFlow 景深
+    if (preserveIndex) {
+      defaultStartIdx = Math.max(0, Math.min(_spProjectGroups.length - 1, Math.round(_projTrack.target)));
+    }
+    _projTrack.goTo(defaultStartIdx, true);
     updateSpatialNavButtons();
     renderBreadcrumbs();
+  }
+
+  async function exportSingleSessionWordFromDeck(sessionId) {
+    const cleanId = String(sessionId || '').trim();
+    if (!cleanId) return;
+    if (getHostIsRecording() && cleanId !== getHostCurrentSessionId()) {
+      notifyToast('目前正在錄音中，請先結束錄音再匯出其他歷史場次');
+      return;
+    }
+    if (cleanId !== getHostCurrentSessionId() && typeof window.loadSession === 'function') {
+      await window.loadSession(cleanId);
+    }
+    if (typeof window.exportFormalFramedWordDoc === 'function') {
+      window.exportFormalFramedWordDoc();
+    } else {
+      probeAndInvokeCapability(['openExportModal'], [], '找不到 Word 匯出功能');
+    }
+  }
+
+  function deleteSingleSessionFromDeck(ev, sessionId, sessionTitle) {
+    if (ev && ev.stopPropagation) ev.stopPropagation();
+    const cleanId = String(sessionId || '').trim();
+    if (!cleanId) return;
+    if (getHostIsRecording() && cleanId === getHostCurrentSessionId()) {
+      notifyToast('該場次正在錄音中，請先停止錄音再刪除');
+      return;
+    }
+    const ok = typeof window.confirm === 'function'
+      ? window.confirm('確定要永久刪除會議紀錄「' + (sessionTitle || '未命名會議紀錄') + '」嗎？')
+      : true;
+    if (!ok) return;
+
+    if (typeof window.deleteSession === 'function') {
+      window.deleteSession(ev, cleanId);
+      setTimeout(function () {
+        refreshSpatialDeckIfOpen();
+      }, 140);
+    }
   }
 
   function renderSpatialLayer2Sessions(preserveSessionId) {
@@ -14704,14 +15967,36 @@ ${segLines || '(無逐字稿，請依上方現有摘要決議整理)'}`;
     const laser = document.getElementById('spatialLaserScrubber');
     if (!vp || !laser) return;
 
-    let group = _spProjectGroups.find(function (g) { return g.tagKey === _spSelectedTagKey; });
-    if (!group && _spProjectGroups.length > 0) {
-      group = _spProjectGroups[0];
-      _spSelectedTagKey = group.tagKey;
-      _spSelectedTagTitle = group.title;
+    let group = _spProjectGroups.find(function (g) { return !g.isLaunchpad && g.tagKey === _spSelectedTagKey; });
+    if (!group) {
+      group = _spProjectGroups.find(function (g) { return !g.isLaunchpad; }) || null;
+      if (group) {
+        _spSelectedTagKey = group.tagKey;
+        _spSelectedTagTitle = group.title;
+      }
     }
 
-    const rawList = group ? group.sessions.slice() : [];
+    const qFilter = String(_spL2FilterQuery || '').trim();
+    let rawList = group ? group.sessions.slice() : [];
+    if (qFilter) {
+      rawList = rawList.filter(function (s) {
+        const spStr = Array.isArray(s.speakerList) ? s.speakerList.join(' ') : '';
+        const segText = Array.isArray(s.transcriptSegments)
+          ? s.transcriptSegments.map(function (sg) { return (sg && sg.text) || ''; }).join(' ')
+          : '';
+        const hay =
+          (s.title || '') + ' ' +
+          (s.projectTag || '') + ' ' +
+          (s.dateStr || '') + ' ' +
+          spStr + ' ' +
+          (s.overview || '') + ' ' +
+          (s.decisions || '') + ' ' +
+          (s.todos || '') + ' ' +
+          segText;
+        return matchesFuzzyTokens(hay, qFilter);
+      });
+    }
+
     rawList.sort(function (a, b) {
       const ta = Number(a.updatedAt) || 0;
       const tb = Number(b.updatedAt) || 0;
@@ -14724,10 +16009,45 @@ ${segLines || '(無逐字稿，請依上方現有摘要決議整理)'}`;
     _spSessCardEls = [];
 
     if (rawList.length === 0) {
+      const emptyEl = document.createElement('div');
+      emptyEl.className = 'sp-empty-card';
+      emptyEl.innerHTML =
+        '<div class="sp-chip">02 會議時間軸</div>' +
+        '<div class="sp-card-title" style="font-size:18px;">' +
+          (qFilter ? '沒有符合「' + safeEscapeHtml(qFilter) + '」的時間軸場次' : '此專案目前尚無歷史會議場次') +
+        '</div>' +
+        '<div class="sp-mid-desc" style="text-align:center;">' +
+          (qFilter ? '請清除篩選關鍵字，或按空白鍵使用全域極速指揮艙穿透搜尋。' : '點擊下方按鈕返回 01 專案舞台或立即進入單場工作艙開始錄製。') +
+        '</div>' +
+        '<div style="display:flex; gap:8px; margin-top:6px;">' +
+          (qFilter
+            ? '<button type="button" class="sp-top-btn is-primary" id="spClearL2FilterBtn">清除篩選條件</button>'
+            : '<button type="button" class="sp-top-btn is-primary" id="spEmptyGoStudioBtn">進入單場工作艙開始錄製 ›</button>') +
+          '<button type="button" class="sp-top-btn" id="spEmptyBackL1Btn">← 返回 01 專案舞台</button>' +
+        '</div>';
+      vp.appendChild(emptyEl);
+
+      const clrBtn = emptyEl.querySelector('#spClearL2FilterBtn');
+      if (clrBtn) {
+        clrBtn.addEventListener('click', function () {
+          _spL2FilterQuery = '';
+          const inp = document.getElementById('spL2FilterInput');
+          if (inp) inp.value = '';
+          renderSpatialLayer2Sessions();
+        });
+      }
+      const goBtn = emptyEl.querySelector('#spEmptyGoStudioBtn');
+      if (goBtn) goBtn.addEventListener('click', closeSpatialDeckMode);
+      const bkBtn = emptyEl.querySelector('#spEmptyBackL1Btn');
+      if (bkBtn) bkBtn.addEventListener('click', function () { diveSpatialLayerTo(1); });
+
+      laser.style.display = 'none';
       _sessTrack.setBounds(0);
       updateSpatialNavButtons();
       return;
     }
+
+    laser.style.display = 'flex';
 
     for (let i = 0; i < rawList.length; i++) {
       const s = rawList[i];
@@ -14797,12 +16117,14 @@ ${segLines || '(無逐字稿，請依上方現有摘要決議整理)'}`;
         thumbHtml +
         '<div class="sp-card-foot">' +
           '<div class="sp-card-actions">' +
-            '<button type="button" class="sp-act-btn" data-sp-peek="' + safeEscapeHtml(s.id) + '">速覽內容</button>' +
-            '<button type="button" class="sp-act-btn is-enter" data-sp-enter="' + safeEscapeHtml(s.id) + '">進入工作台 ›</button>' +
+            '<button type="button" class="sp-act-btn" data-sp-peek="' + safeEscapeHtml(s.id) + '">底抽屜速覽</button>' +
+            '<button type="button" class="sp-act-btn" data-sp-doc="' + safeEscapeHtml(s.id) + '">匯出紀錄 .doc</button>' +
+            '<button type="button" class="sp-act-btn is-danger" data-sp-del="' + safeEscapeHtml(s.id) + '">刪除</button>' +
+            '<button type="button" class="sp-act-btn is-enter" data-sp-enter="' + safeEscapeHtml(s.id) + '">進入工作艙 ›</button>' +
           '</div>' +
         '</div>';
 
-      (function (sessIndex, sessId) {
+      (function (sessIndex, sessId, sessTitle) {
         const peekBtn = card.querySelector('[data-sp-peek]');
         if (peekBtn) {
           peekBtn.addEventListener('click', function (ev) {
@@ -14810,6 +16132,19 @@ ${segLines || '(無逐字稿，請依上方現有摘要決議整理)'}`;
             if (typeof window.openSessionQuickSheet === 'function') {
               window.openSessionQuickSheet(sessId, 'summary');
             }
+          });
+        }
+        const docBtn = card.querySelector('[data-sp-doc]');
+        if (docBtn) {
+          docBtn.addEventListener('click', function (ev) {
+            ev.stopPropagation();
+            exportSingleSessionWordFromDeck(sessId);
+          });
+        }
+        const delBtn = card.querySelector('[data-sp-del]');
+        if (delBtn) {
+          delBtn.addEventListener('click', function (ev) {
+            deleteSingleSessionFromDeck(ev, sessId, sessTitle);
           });
         }
         const enterBtn = card.querySelector('[data-sp-enter]');
@@ -14821,14 +16156,14 @@ ${segLines || '(無逐字稿，請依上方現有摘要決議整理)'}`;
         }
         card.addEventListener('click', function (ev) {
           if (_spGestureMoved) return;
-          if (ev.target && ev.target.closest && ev.target.closest('button')) return;
+          if (ev.target && ev.target.closest && ev.target.closest('button, input')) return;
           if (Math.abs(_sessTrack.pos - sessIndex) > 0.38) {
             _sessTrack.goTo(sessIndex, false);
           } else {
             enterSessionFromSpatialDeck(sessId);
           }
         });
-      })(i, s.id);
+      })(i, s.id, s.title);
 
       bindCardGlare(card);
       vp.appendChild(card);
@@ -14872,33 +16207,44 @@ ${segLines || '(無逐字稿，請依上方現有摘要決議整理)'}`;
     for (let i = 0; i < chips.length; i++) {
       const isAct = i === activeIdx;
       chips[i].classList.toggle('is-active', isAct);
-      if (isAct && typeof chips[i].scrollIntoView === 'function') {
-        try {
-          chips[i].scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' });
-        } catch (_) {}
+      if (isAct && laser.scrollWidth > laser.clientWidth) {
+        const targetLeft = chips[i].offsetLeft - (laser.clientWidth - chips[i].offsetWidth) / 2;
+        laser.scrollLeft = Math.max(0, targetLeft);
       }
     }
   }
 
   function renderBreadcrumbs() {
     const nav = document.getElementById('spBreadcrumbs');
-    const sortBtn = document.getElementById('spSortOrderBtn');
+    const l2Toolbar = document.getElementById('spL2ToolbarGroup');
+    const d0 = document.getElementById('spDepthNode0');
     const d1 = document.getElementById('spDepthNode1');
     const d2 = document.getElementById('spDepthNode2');
+    const d3 = document.getElementById('spDepthNode3');
     if (!nav) return;
 
-    if (d1) d1.classList.toggle('is-active', _spDepth === 1);
-    if (d2) d2.classList.toggle('is-active', _spDepth === 2);
-    if (sortBtn) sortBtn.style.display = _spDepth === 2 ? 'inline-flex' : 'none';
+    if (d0) d0.classList.toggle('is-active', _spIsOpen && _spDepth === 0);
+    if (d1) d1.classList.toggle('is-active', _spIsOpen && _spDepth === 1);
+    if (d2) d2.classList.toggle('is-active', _spIsOpen && _spDepth === 2);
+    if (d3) d3.classList.toggle('is-active', !_spIsOpen);
+    if (l2Toolbar) l2Toolbar.style.display = _spDepth === 2 ? 'inline-flex' : 'none';
 
-    if (_spDepth === 1) {
-      nav.innerHTML = '<button type="button" class="sp-crumb-pill is-current" data-crumb-depth="1">專案分類層</button>';
+    if (_spDepth === 0) {
+      nav.innerHTML =
+        '<button type="button" class="sp-crumb-pill is-current" data-crumb-depth="0">00 戰情總覽</button>' +
+        '<span class="sp-crumb-sep">›</span>' +
+        '<button type="button" class="sp-crumb-pill" data-crumb-depth="1">01 專案舞台</button>';
+    } else if (_spDepth === 1) {
+      nav.innerHTML =
+        '<button type="button" class="sp-crumb-pill" data-crumb-depth="0">00 戰情總覽</button>' +
+        '<span class="sp-crumb-sep">›</span>' +
+        '<button type="button" class="sp-crumb-pill is-current" data-crumb-depth="1">01 專案舞台</button>';
     } else {
       nav.innerHTML =
-        '<button type="button" class="sp-crumb-pill" data-crumb-depth="1">專案分類層</button>' +
+        '<button type="button" class="sp-crumb-pill" data-crumb-depth="1">01 專案舞台</button>' +
         '<span class="sp-crumb-sep">›</span>' +
         '<button type="button" class="sp-crumb-pill is-current" data-crumb-depth="2">' +
-          safeEscapeHtml(_spSelectedTagTitle) + ' · 歷次會議時間軸' +
+          '02 ' + safeEscapeHtml(_spSelectedTagTitle) +
         '</button>';
     }
 
@@ -14906,25 +16252,38 @@ ${segLines || '(無逐字稿，請依上方現有摘要決議整理)'}`;
     for (let i = 0; i < pills.length; i++) {
       pills[i].addEventListener('click', function () {
         const targetD = Number(this.getAttribute('data-crumb-depth'));
-        if (targetD === 1 && _spDepth === 2) {
-          diveSpatialLayer(-1);
+        if (Number.isFinite(targetD) && targetD !== _spDepth) {
+          diveSpatialLayerTo(targetD);
         }
       });
     }
   }
 
   function applyDepthLayerClasses() {
+    const l0 = document.getElementById('spLayerOverview');
     const l1 = document.getElementById('spLayerProjects');
     const l2 = document.getElementById('spLayerSessions');
     if (!l1 || !l2) return;
 
-    if (_spDepth === 1) {
+    if (_spDepth === 0) {
+      if (l0) l0.className = 'spatial-layer at-surface';
+      l1.className = 'spatial-layer below-surface';
+      l2.className = 'spatial-layer below-surface';
+    } else if (_spDepth === 1) {
+      if (l0) l0.className = 'spatial-layer dived-past';
       l1.className = 'spatial-layer at-surface';
       l2.className = 'spatial-layer below-surface';
     } else {
+      if (l0) l0.className = 'spatial-layer dived-past';
       l1.className = 'spatial-layer dived-past';
       l2.className = 'spatial-layer at-surface';
     }
+
+    const grid = document.getElementById('spatialHudGrid');
+    if (grid && _spDepth === 0) {
+      grid.style.transform = 'translate3d(0px, 24px, 0px)';
+    }
+
     renderBreadcrumbs();
     updateSpatialNavButtons();
   }
@@ -14942,14 +16301,14 @@ ${segLines || '(無逐字稿，請依上方現有摘要決議整理)'}`;
   }
 
   function applySpatialTheme(theme) {
-    _spTheme = theme === 'light' ? 'light' : 'dark';
+    _spTheme = theme === 'dark' ? 'dark' : 'light';
     const overlay = document.getElementById('spatialDeckOverlay');
     if (overlay) {
       overlay.setAttribute('data-spatial-theme', _spTheme);
     }
     const labelEl = document.getElementById('spatialThemeLabel');
     if (labelEl) {
-      labelEl.textContent = _spTheme === 'dark' ? '淺色極簡艙' : '深色星空艙';
+      labelEl.textContent = _spTheme === 'light' ? '暗房深色' : '北歐淺色';
     }
     try {
       localStorage.setItem(SPATIAL_THEME_KEY, _spTheme);
@@ -14970,31 +16329,36 @@ ${segLines || '(無逐字稿，請依上方現有摘要決議整理)'}`;
     }
   }
 
-  function updateWorkspaceModeSwitchUI(isSpatial) {
-    const btnStd = document.getElementById('spModeBtnStandard');
-    const btnDeck = document.getElementById('spModeBtnDeck');
-    if (btnStd) btnStd.classList.toggle('is-active', !isSpatial);
-    if (btnDeck) btnDeck.classList.toggle('is-active', Boolean(isSpatial));
-  }
-
-  function openSpatialDeckMode() {
+  function openSpatialDeckMode(initialDepth) {
     ensureOverlaysMounted();
     const overlay = document.getElementById('spatialDeckOverlay');
     if (!overlay) return;
 
+    syncSpatialBrandLogo();
     _spIsOpen = true;
-    _spDepth = 1;
+    const targetDepth = (initialDepth === 0 || initialDepth === 1 || initialDepth === 2)
+      ? initialDepth
+      : 1;
+    _spDepth = targetDepth;
+
     overlay.classList.add('is-open');
     overlay.setAttribute('aria-hidden', 'false');
-    updateWorkspaceModeSwitchUI(true);
 
-    let savedTheme = 'dark';
+    let savedTheme = 'light';
     try {
-      savedTheme = localStorage.getItem(SPATIAL_THEME_KEY) || 'dark';
+      const rawSaved = localStorage.getItem(SPATIAL_THEME_KEY);
+      if (rawSaved === 'dark' || rawSaved === 'light') {
+        savedTheme = rawSaved;
+      }
     } catch (_) {}
     applySpatialTheme(savedTheme);
 
-    renderSpatialLayer1Projects(false);
+    renderSpatialLayer1Projects(true);
+    if (_spDepth === 0) {
+      renderSpatialLayer0Overview();
+    } else if (_spDepth === 2) {
+      renderSpatialLayer2Sessions(getHostCurrentSessionId());
+    }
     applyDepthLayerClasses();
     syncLiveRecordingPill();
 
@@ -15014,36 +16378,111 @@ ${segLines || '(無逐字稿，請依上方現有摘要決議整理)'}`;
       overlay.classList.remove('is-open');
       overlay.setAttribute('aria-hidden', 'true');
     }
-    updateWorkspaceModeSwitchUI(false);
+
+    const mainArea = document.querySelector('.main-area');
+    if (mainArea) {
+      mainArea.classList.remove('sp-studio-enter');
+      void mainArea.offsetWidth;
+      mainArea.classList.add('sp-studio-enter');
+    }
+    renderBreadcrumbs();
+  }
+
+  function diveSpatialLayerTo(targetDepth) {
+    if (targetDepth === 3) {
+      if (_spIsOpen && _spDepth === 2 && _spLayer2Sessions.length > 0) {
+        const cur = _spLayer2Sessions[Math.round(_sessTrack.target)];
+        if (cur && cur.id) {
+          enterSessionFromSpatialDeck(cur.id);
+          return;
+        }
+      }
+      closeSpatialDeckMode();
+      return;
+    }
+
+    if (!_spIsOpen) {
+      openSpatialDeckMode(targetDepth);
+      return;
+    }
+
+    if (targetDepth === 0) {
+      _projTrack.cancelAnim();
+      _sessTrack.cancelAnim();
+      _spDepth = 0;
+      renderSpatialLayer0Overview();
+      applyDepthLayerClasses();
+      return;
+    }
+
+    if (targetDepth === 1) {
+      _sessTrack.cancelAnim();
+      _spDepth = 1;
+      renderSpatialLayer1Projects(true);
+      applyDepthLayerClasses();
+      return;
+    }
+
+    if (targetDepth === 2) {
+      buildProjectGroupsData();
+      const curIdx = Math.max(0, Math.min(_spProjectGroups.length - 1, Math.round(_projTrack.target)));
+      const activeGrp = _spProjectGroups[curIdx];
+      if (activeGrp && !activeGrp.isLaunchpad) {
+        _spSelectedTagKey = activeGrp.tagKey;
+        _spSelectedTagTitle = activeGrp.title;
+      } else {
+        const allGrp = _spProjectGroups.find(function (g) { return !g.isLaunchpad; });
+        if (allGrp) {
+          _spSelectedTagKey = allGrp.tagKey;
+          _spSelectedTagTitle = allGrp.title;
+        }
+      }
+      _spDepth = 2;
+      renderSpatialLayer2Sessions();
+      applyDepthLayerClasses();
+    }
   }
 
   function diveSpatialLayer(direction) {
     if (!_spIsOpen) return;
     if (direction > 0) {
+      if (_spDepth === 0) {
+        diveSpatialLayerTo(1);
+        return;
+      }
       if (_spDepth === 1) {
-        if (_spProjectGroups.length === 0) return;
         const idx = Math.max(0, Math.min(_spProjectGroups.length - 1, Math.round(_projTrack.target)));
         const grp = _spProjectGroups[idx];
+        if (!grp) return;
+        if (grp.isLaunchpad) {
+          executeLaunchpadAction('studio', _spLaunchDraftTag);
+          return;
+        }
+        if (grp.sessionCount <= 0) {
+          closeSpatialDeckMode();
+          return;
+        }
         _spSelectedTagKey = grp.tagKey;
         _spSelectedTagTitle = grp.title;
-        _spDepth = 2;
-        renderSpatialLayer2Sessions();
-        applyDepthLayerClasses();
-      } else if (_spDepth === 2 && _spLayer2Sessions.length > 0) {
-        const sIdx = Math.max(0, Math.min(_spLayer2Sessions.length - 1, Math.round(_sessTrack.target)));
-        const targetSess = _spLayer2Sessions[sIdx];
-        if (targetSess && targetSess.id) {
-          enterSessionFromSpatialDeck(targetSess.id);
+        diveSpatialLayerTo(2);
+        return;
+      }
+      if (_spDepth === 2) {
+        if (_spLayer2Sessions.length > 0) {
+          const sIdx = Math.max(0, Math.min(_spLayer2Sessions.length - 1, Math.round(_sessTrack.target)));
+          const targetSess = _spLayer2Sessions[sIdx];
+          if (targetSess && targetSess.id) {
+            enterSessionFromSpatialDeck(targetSess.id);
+            return;
+          }
         }
+        closeSpatialDeckMode();
       }
     } else if (direction < 0) {
       if (_spDepth === 2) {
-        _sessTrack.cancelAnim();
-        _spDepth = 1;
-        renderSpatialLayer1Projects(true);
-        applyDepthLayerClasses();
-      } else {
-        closeSpatialDeckMode();
+        diveSpatialLayerTo(1);
+      } else if (_spDepth === 1) {
+        diveSpatialLayerTo(0);
       }
     }
   }
@@ -15081,7 +16520,9 @@ ${segLines || '(無逐字稿，請依上方現有摘要決議整理)'}`;
       ? _spLayer2Sessions[Math.round(_sessTrack.target)].id
       : null;
     renderSpatialLayer1Projects(true);
-    if (_spDepth === 2) {
+    if (_spDepth === 0) {
+      renderSpatialLayer0Overview();
+    } else if (_spDepth === 2) {
       renderSpatialLayer2Sessions(prevSessId);
     }
   }
@@ -15091,8 +16532,7 @@ ${segLines || '(無逐字稿，請依上方現有摘要決議整理)'}`;
     if (!overlay || overlay._spBound) return;
     overlay._spBound = true;
 
-    const closeBtn = document.getElementById('spCloseDeckBtn');
-    if (closeBtn) closeBtn.addEventListener('click', closeSpatialDeckMode);
+    syncSpatialBrandLogo();
 
     const recPill = document.getElementById('spLiveRecPill');
     if (recPill) recPill.addEventListener('click', closeSpatialDeckMode);
@@ -15100,10 +16540,39 @@ ${segLines || '(無逐字稿，請依上方現有摘要決議整理)'}`;
     const cmdBtn = document.getElementById('spOpenCmdBtn');
     if (cmdBtn) cmdBtn.addEventListener('click', function () { openCommandHud(); });
 
+    const quickRecBtn = document.getElementById('spQuickRecBtn');
+    if (quickRecBtn) {
+      quickRecBtn.addEventListener('click', function () {
+        executeLaunchpadAction('audio', _spLaunchDraftTag);
+      });
+    }
+
+    const quickVideoBtn = document.getElementById('spQuickVideoBtn');
+    if (quickVideoBtn) {
+      quickVideoBtn.addEventListener('click', function () {
+        executeLaunchpadAction('video', _spLaunchDraftTag);
+      });
+    }
+
+    const openSettingsBtn = document.getElementById('spOpenSettingsBtn');
+    if (openSettingsBtn) {
+      openSettingsBtn.addEventListener('click', function () {
+        probeAndInvokeCapability(['openSettingsModal'], [], '找不到系統設定視窗');
+      });
+    }
+
     const themeBtn = document.getElementById('spatialThemeToggleBtn');
     if (themeBtn) {
       themeBtn.addEventListener('click', function () {
-        applySpatialTheme(_spTheme === 'dark' ? 'light' : 'dark');
+        applySpatialTheme(_spTheme === 'light' ? 'dark' : 'light');
+      });
+    }
+
+    const l2FilterInp = document.getElementById('spL2FilterInput');
+    if (l2FilterInp) {
+      l2FilterInp.addEventListener('input', function () {
+        _spL2FilterQuery = this.value || '';
+        renderSpatialLayer2Sessions();
       });
     }
 
@@ -15112,7 +16581,7 @@ ${segLines || '(無逐字稿，請依上方現有摘要決議整理)'}`;
       sortBtn.addEventListener('click', function () {
         _spSortAsc = !_spSortAsc;
         const lbl = document.getElementById('spSortOrderLabel');
-        if (lbl) lbl.textContent = _spSortAsc ? '依時間先後' : '最新會議在前';
+        if (lbl) lbl.textContent = _spSortAsc ? '依時間先後' : '最新在前';
         renderSpatialLayer2Sessions();
       });
     }
@@ -15127,26 +16596,17 @@ ${segLines || '(無逐字稿，請依上方現有摘要決議整理)'}`;
     if (sPrev) sPrev.addEventListener('click', function () { _sessTrack.stepBy(-1); });
     if (sNext) sNext.addEventListener('click', function () { _sessTrack.stepBy(1); });
 
-    // 右側深度軌節點點擊
+    // 右側四層深度軌節點點擊 (00 / 01 / 02 / 03)
+    const d0 = document.getElementById('spDepthNode0');
     const d1 = document.getElementById('spDepthNode1');
     const d2 = document.getElementById('spDepthNode2');
     const d3 = document.getElementById('spDepthNode3');
-    if (d1) d1.addEventListener('click', function () { if (_spDepth === 2) diveSpatialLayer(-1); });
-    if (d2) d2.addEventListener('click', function () { if (_spDepth === 1) diveSpatialLayer(1); });
-    if (d3) {
-      d3.addEventListener('click', function () {
-        if (_spDepth === 2 && _spLayer2Sessions.length > 0) {
-          const cur = _spLayer2Sessions[Math.round(_sessTrack.target)];
-          if (cur && cur.id) {
-            enterSessionFromSpatialDeck(cur.id);
-            return;
-          }
-        }
-        closeSpatialDeckMode();
-      });
-    }
+    if (d0) d0.addEventListener('click', function () { diveSpatialLayerTo(0); });
+    if (d1) d1.addEventListener('click', function () { diveSpatialLayerTo(1); });
+    if (d2) d2.addEventListener('click', function () { diveSpatialLayerTo(2); });
+    if (d3) d3.addEventListener('click', function () { diveSpatialLayerTo(3); });
 
-    // 攝影機世界手勢拖曳與跨多卡慣性投射（含 0.28 邊界橡皮筋阻尼）
+    // 攝影機世界手勢拖曳與跨多卡慣性投射（含 0.28 邊界橡皮筋阻尼，僅在 01 / 02 層啟動）
     const world = document.getElementById('spCameraWorld');
     if (world) {
       let dragActive = false;
@@ -15157,8 +16617,9 @@ ${segLines || '(無逐字稿，請依上方現有摘要決議整理)'}`;
       const cardSpanPx = 330;
 
       world.addEventListener('pointerdown', function (ev) {
+        if (_spDepth === 0) return;
         if (ev.button !== undefined && ev.button !== 0) return;
-        if (ev.target && ev.target.closest && ev.target.closest('#spatialLaserScrubber, .sp-orb-arrow, .sp-act-btn, button, input')) {
+        if (ev.target && ev.target.closest && ev.target.closest('#spatialLaserScrubber, #spL2ToolbarGroup, .sp-l0-hub, .sp-orb-arrow, .sp-act-btn, .sp-launch-btn, button, input, label')) {
           return;
         }
         const track = getActiveSpatialTrack();
@@ -15261,16 +16722,26 @@ ${segLines || '(無逐字稿，請依上方現有摘要決議整理)'}`;
       laser.addEventListener('pointercancel', stopLaserScrub);
     }
 
-    // 滾輪橫向滑牌與 420ms 防抖垂直下潛分流
+    // 滾輪橫向滑牌與 420ms 防抖四層 Z 軸垂直升降分流
     overlay.addEventListener('wheel', function (ev) {
-      if (!_spIsOpen || _qsIsOpen || _cmdIsOpen) return;
+      if (!_spIsOpen || _qsIsOpen || _cmdIsOpen || hasVisibleHostModal()) return;
+
+      // 若在 00 戰情總覽層且內容框尚未滾到底部，允許原生垂直捲動
+      if (_spDepth === 0) {
+        const hub = document.getElementById('spOverviewContainer');
+        if (hub && hub.scrollHeight > hub.clientHeight + 4) {
+          if (ev.deltaY < 0 && hub.scrollTop > 2) return;
+          if (ev.deltaY > 0 && hub.scrollTop + hub.clientHeight < hub.scrollHeight - 4) return;
+        }
+      }
+
       ev.preventDefault();
 
       const absX = Math.abs(ev.deltaX);
       const absY = Math.abs(ev.deltaY);
-      const track = getActiveSpatialTrack();
 
-      if (absX > absY || ev.shiftKey) {
+      if (_spDepth >= 1 && (absX > absY || ev.shiftKey)) {
+        const track = getActiveSpatialTrack();
         const delta = absX > absY ? ev.deltaX : ev.deltaY;
         _spWheelHorizAccum += delta;
         if (Math.abs(_spWheelHorizAccum) >= 42) {
@@ -15286,9 +16757,11 @@ ${segLines || '(無逐字稿，請依上方現有摘要決議整理)'}`;
         if (now < _spWheelDiveCooldownUntil) return;
         _spWheelDiveCooldownUntil = now + 420;
         if (ev.deltaY > 0) {
-          if (_spDepth === 1) diveSpatialLayer(1);
+          if (_spDepth === 0) diveSpatialLayerTo(1);
+          else if (_spDepth === 1) diveSpatialLayer(1);
         } else if (ev.deltaY < 0) {
-          if (_spDepth === 2) diveSpatialLayer(-1);
+          if (_spDepth === 2) diveSpatialLayerTo(1);
+          else if (_spDepth === 1) diveSpatialLayerTo(0);
         }
       }
     }, { passive: false });
@@ -16294,25 +17767,45 @@ ${segLines || '(無逐字稿，請依上方現有摘要決議整理)'}`;
     return [
       {
         id: 'cmd-toggle-spatial',
-        title: _spIsOpen ? '返回標準工作台' : '切換至 3D 會議時光空間艙',
-        sub: '120Hz 彈簧物理卡片流 · 多層垂直空間下潛 · 雷射時間滑軌',
-        keywords: '3d spatial deck 空間艙 時光艙 標準工作台 切換 模式',
+        title: _spIsOpen ? '進入 03 單場錄製與筆記工作艙' : '返回 01 極簡北歐 3D 專案舞台首頁',
+        sub: '四層 Z 軸空間切換：00 戰情總覽 · 01 專案舞台 · 02 會議時間軸 · 03 單場工作艙',
+        keywords: '3d spatial deck stage studio 空間舞台 專案舞台 單場工作艙 標準工作台 首頁 切換',
         hint: '立即切換 ↵',
         run: function () {
           if (_spIsOpen) closeSpatialDeckMode();
-          else openSpatialDeckMode();
+          else openSpatialDeckMode(1);
+        }
+      },
+      {
+        id: 'cmd-layer0-overview',
+        title: '前往 00 全域戰情與跨場次 AI 總覽台',
+        sub: '檢視全庫場次統計、待辦完成率、優先待辦速勾與跨會議 AI 直通檢索',
+        keywords: '00 overview dashboard kpi 戰情總覽 統計 總覽 全局',
+        hint: '前往 00 層 ↵',
+        run: function () {
+          diveSpatialLayerTo(0);
+        }
+      },
+      {
+        id: 'cmd-layer2-timeline',
+        title: '前往 02 歷次會議 3D 時間軸與雷射滑軌',
+        sub: '120Hz 彈簧卡片翻閱歷次會議、關鍵字篩選與雷射滑軌極速預覽',
+        keywords: '02 timeline laser history 時間軸 歷次會議 雷射滑軌',
+        hint: '前往 02 層 ↵',
+        run: function () {
+          diveSpatialLayerTo(2);
         }
       },
       {
         id: 'cmd-toggle-theme',
-        title: '切換 3D 空間艙深色星空 / 淺色極簡主題',
-        sub: '目前主題：' + (_spTheme === 'dark' ? '深色星空科技艙' : '淺色極簡霧面艙'),
-        keywords: 'theme dark light 深色 淺色 主題 星空 極簡 配色',
+        title: '切換極簡北歐淺色 / 暗房投影深色主題',
+        sub: '目前主題：' + (_spTheme === 'light' ? '極簡北歐暖白淺色' : '暗房投影深色'),
+        keywords: 'theme nordic light dark 北歐 淺色 深色 暗房 主題 配色',
         hint: '切換主題 ↵',
         run: function () {
-          if (!_spIsOpen) openSpatialDeckMode();
-          applySpatialTheme(_spTheme === 'dark' ? 'light' : 'dark');
-          notifyToast('已切換 3D 空間艙視覺主題');
+          if (!_spIsOpen) openSpatialDeckMode(1);
+          applySpatialTheme(_spTheme === 'light' ? 'dark' : 'light');
+          notifyToast('已切換 3D 空間舞台視覺主題');
         }
       },
       {
@@ -16998,7 +18491,24 @@ ${segLines || '(無逐字稿，請依上方現有摘要決議整理)'}`;
   function hasVisibleHostModal() {
     const modals = document.querySelectorAll('.modal-backdrop, #googleLoginGate');
     for (let i = 0; i < modals.length; i++) {
-      if (modals[i].style && modals[i].style.display === 'flex') return true;
+      const el = modals[i];
+      if (!el) continue;
+      if (el.style && el.style.display && el.style.display !== 'none') return true;
+      if (typeof window.getComputedStyle === 'function') {
+        try {
+          const disp = window.getComputedStyle(el).display;
+          if (disp && disp !== 'none') return true;
+        } catch (_) {}
+      }
+    }
+    return false;
+  }
+
+  function closeParamsPopoverIfOpen() {
+    const wrap = document.getElementById('spParamsPopoverWrap');
+    if (wrap && wrap.classList.contains('is-open')) {
+      wrap.classList.remove('is-open');
+      return true;
     }
     return false;
   }
@@ -17013,6 +18523,9 @@ ${segLines || '(無逐字稿，請依上方現有摘要決議整理)'}`;
 
       // 1. 全域 Ctrl+K / Cmd+K
       if ((ev.ctrlKey || ev.metaKey) && key.toLowerCase() === 'k') {
+        if (hasVisibleHostModal() && document.getElementById('googleLoginGate') && hasVisibleLoginGate()) {
+          return;
+        }
         ev.preventDefault();
         ev.stopPropagation();
         if (_cmdIsOpen) closeCommandHud();
@@ -17020,7 +18533,7 @@ ${segLines || '(無逐字稿，請依上方現有摘要決議整理)'}`;
         return;
       }
 
-      // 2. Escape 嚴格階層隔離
+      // 2. Escape 嚴格階層隔離（宿主彈窗開啟時優先讓宿主處理）
       if (key === 'Escape') {
         if (_cmdIsOpen) {
           ev.preventDefault();
@@ -17036,11 +18549,23 @@ ${segLines || '(無逐字稿，請依上方現有摘要決議整理)'}`;
           closeSessionQuickSheet();
           return;
         }
+        if (closeParamsPopoverIfOpen()) {
+          ev.preventDefault();
+          ev.stopPropagation();
+          return;
+        }
+        if (hasVisibleHostModal()) {
+          return;
+        }
         if (_spIsOpen) {
           ev.preventDefault();
           ev.stopPropagation();
           if (ev.stopImmediatePropagation) ev.stopImmediatePropagation();
-          diveSpatialLayer(-1);
+          if (_spDepth === 2 || _spDepth === 0) {
+            diveSpatialLayerTo(1);
+          } else {
+            closeSpatialDeckMode();
+          }
           return;
         }
         return;
@@ -17049,7 +18574,7 @@ ${segLines || '(無逐字稿，請依上方現有摘要決議整理)'}`;
       // 若極速指揮艙或底抽屜開啟中，不觸發背後 3D 空間艙導航鍵
       if (_cmdIsOpen || _qsIsOpen) return;
 
-      // 3. 3D 空間艙專屬快捷鍵（空白鍵呼出指揮艙、方向鍵與 Enter 操控）
+      // 3. 3D 空間舞台專屬快捷鍵（空白鍵呼出指揮艙、方向鍵與 Enter 操控四層升降）
       if (_spIsOpen && !isEditableElementFocused(document.activeElement) && !hasVisibleHostModal()) {
         if (key === ' ' || ev.code === 'Space') {
           ev.preventDefault();
@@ -17057,17 +18582,22 @@ ${segLines || '(無逐字稿，請依上方現有摘要決議整理)'}`;
           openCommandHud('');
           return;
         }
-        if (key === 'ArrowLeft') {
+        if (key === 'ArrowLeft' && _spDepth >= 1) {
           ev.preventDefault();
           getActiveSpatialTrack().stepBy(-1);
           return;
         }
-        if (key === 'ArrowRight') {
+        if (key === 'ArrowRight' && _spDepth >= 1) {
           ev.preventDefault();
           getActiveSpatialTrack().stepBy(1);
           return;
         }
-        if (key === 'ArrowDown' || key === 'Enter') {
+        if (key === 'ArrowDown') {
+          ev.preventDefault();
+          diveSpatialLayer(1);
+          return;
+        }
+        if (key === 'Enter' && _spDepth >= 1) {
           ev.preventDefault();
           diveSpatialLayer(1);
           return;
@@ -17080,38 +18610,60 @@ ${segLines || '(無逐字稿，請依上方現有摘要決議整理)'}`;
     }, true);
   }
 
+  function hasVisibleLoginGate() {
+    const gate = document.getElementById('googleLoginGate');
+    if (!gate) return false;
+    if (gate.style && gate.style.display === 'none') return false;
+    if (typeof window.getComputedStyle === 'function') {
+      try {
+        return window.getComputedStyle(gate).display !== 'none';
+      } catch (_) {}
+    }
+    return false;
+  }
+
   /* --------------------------------------------------------------------------
-     九、動態 DOM 掛載與宿主函式無侵入封裝 (initSpatialSuite)
+     九、動態 DOM 掛載、第 03 層單列導覽列重構與宿主函式無侵入封裝 (initSpatialSuite)
      -------------------------------------------------------------------------- */
   function buildOverlayFallbackMarkup() {
     return (
-      '<div id="spatialDeckOverlay" data-spatial-theme="dark" aria-hidden="true">' +
+      '<div id="spatialDeckOverlay" data-spatial-theme="light" class="is-open" aria-hidden="false">' +
         '<div class="sp-ambient-bg"></div>' +
         '<div id="spatialHudGrid"></div>' +
         '<header class="sp-topbar">' +
           '<div class="sp-topbar-left">' +
             '<div class="sp-brand-badge">' +
-              '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2L3 7l9 5 9-5-9-5z"></path><path d="M3 17l9 5 9-5"></path><path d="M3 12l9 5 9-5"></path></svg>' +
-              '<span>3D 會議時光空間艙</span>' +
+              '<img id="spBrandLogoImg" class="sp-brand-logo" alt="諾維拉 NOTTA" style="display:none;" />' +
+              '<span class="sp-brand-text">諾維拉 NOTTA</span>' +
             '</div>' +
             '<nav id="spBreadcrumbs" class="sp-breadcrumbs" aria-label="空間階層導覽"></nav>' +
           '</div>' +
+          '<div class="sp-topbar-center">' +
+            '<button type="button" id="spOpenCmdBtn" class="sp-cmd-searchbar">' +
+              '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"></circle><path d="M20 20l-3.8-3.8"></path></svg>' +
+              '<span class="sp-cmd-search-text">搜尋全庫逐字稿、專案或輸入指令...</span>' +
+              '<span class="cmd-kbd-badge">Ctrl+K</span>' +
+            '</button>' +
+          '</div>' +
           '<div class="sp-topbar-right">' +
             '<button type="button" id="spLiveRecPill" class="sp-live-rec-pill"><span class="sp-live-dot"></span><span id="spLiveRecLabel">錄製中 00:00</span></button>' +
-            '<button type="button" id="spSortOrderBtn" class="sp-top-btn" style="display:none;"><span id="spSortOrderLabel">最新會議在前</span></button>' +
-            '<button type="button" id="spatialThemeToggleBtn" class="sp-top-btn"><span id="spatialThemeLabel">淺色極簡艙</span></button>' +
-            '<button type="button" id="spOpenCmdBtn" class="sp-top-btn"><span>極速指揮</span></button>' +
-            '<button type="button" id="spCloseDeckBtn" class="sp-top-btn is-primary"><span>返回標準工作台</span></button>' +
+            '<button type="button" id="spQuickRecBtn" class="sp-top-btn is-primary"><span>● 立即新錄音</span></button>' +
+            '<button type="button" id="spQuickVideoBtn" class="sp-top-btn"><span>螢幕錄影</span></button>' +
+            '<button type="button" id="spOpenSettingsBtn" class="sp-top-btn"><span>系統設定</span></button>' +
+            '<button type="button" id="spatialThemeToggleBtn" class="sp-top-btn sp-theme-btn"><span id="spatialThemeLabel">暗房深色</span></button>' +
           '</div>' +
         '</header>' +
         '<aside id="spatialDepthRail">' +
-          '<button type="button" id="spDepthNode1" class="sp-depth-node is-active" data-depth-target="1"><span>01 專案層</span><span class="sp-depth-pip"></span></button>' +
+          '<button type="button" id="spDepthNode0" class="sp-depth-node" data-depth-target="0"><span>00 戰情總覽</span><span class="sp-depth-pip"></span></button>' +
           '<div class="sp-depth-sep"></div>' +
-          '<button type="button" id="spDepthNode2" class="sp-depth-node" data-depth-target="2"><span>02 時間軸</span><span class="sp-depth-pip"></span></button>' +
+          '<button type="button" id="spDepthNode1" class="sp-depth-node is-active" data-depth-target="1"><span>01 專案舞台</span><span class="sp-depth-pip"></span></button>' +
           '<div class="sp-depth-sep"></div>' +
-          '<button type="button" id="spDepthNode3" class="sp-depth-node" data-depth-target="3"><span>03 工作台</span><span class="sp-depth-pip"></span></button>' +
+          '<button type="button" id="spDepthNode2" class="sp-depth-node" data-depth-target="2"><span>02 會議時間軸</span><span class="sp-depth-pip"></span></button>' +
+          '<div class="sp-depth-sep"></div>' +
+          '<button type="button" id="spDepthNode3" class="sp-depth-node" data-depth-target="3"><span>03 單場工作艙</span><span class="sp-depth-pip"></span></button>' +
         '</aside>' +
         '<div id="spCameraWorld" class="sp-camera-world">' +
+          '<section id="spLayerOverview" class="spatial-layer dived-past"><div id="spOverviewContainer" class="sp-l0-hub"></div></section>' +
           '<section id="spLayerProjects" class="spatial-layer at-surface">' +
             '<div class="sp-stage-row">' +
               '<button type="button" id="spProjPrevBtn" class="sp-orb-arrow"><svg viewBox="0 0 24 24"><path d="M15 18l-6-6 6-6"></path></svg></button>' +
@@ -17120,6 +18672,10 @@ ${segLines || '(無逐字稿，請依上方現有摘要決議整理)'}`;
             '</div>' +
           '</section>' +
           '<section id="spLayerSessions" class="spatial-layer below-surface">' +
+            '<div id="spL2ToolbarGroup" class="sp-l2-toolbar-group">' +
+              '<input type="text" id="spL2FilterInput" class="sp-l2-filter-input" autocomplete="off" spellcheck="false" placeholder="篩選此時間軸場次關鍵字..." />' +
+              '<button type="button" id="spSortOrderBtn" class="sp-top-btn"><span id="spSortOrderLabel">最新在前</span></button>' +
+            '</div>' +
             '<div class="sp-stage-row">' +
               '<button type="button" id="spSessPrevBtn" class="sp-orb-arrow"><svg viewBox="0 0 24 24"><path d="M15 18l-6-6 6-6"></path></svg></button>' +
               '<div id="spSessViewport" class="sp-deck-vp"></div>' +
@@ -17129,7 +18685,7 @@ ${segLines || '(無逐字稿，請依上方現有摘要決議整理)'}`;
           '</section>' +
         '</div>' +
         '<div id="spBottomHudHint" class="sp-bottom-hud-hint">' +
-          '<span>← → 左右翻閱卡片</span><span>◆</span><span>↓ / Enter 下潛或載入工作台</span><span>◆</span><span>↑ / Esc 返回上層</span><span>◆</span><span>空白鍵 呼出極速指揮艙</span>' +
+          '<span>← → 左右翻閱卡片</span><span>◆</span><span>↑ ↓ 切換 00 戰情總覽 · 01 專案舞台 · 02 會議時間軸</span><span>◆</span><span>Enter 下潛或進入 03 單場工作艙</span><span>◆</span><span>空白鍵 呼出極速指揮艙</span>' +
         '</div>' +
       '</div>' +
       '<div id="quickSheetBackdrop" aria-hidden="true">' +
@@ -17141,7 +18697,7 @@ ${segLines || '(無逐字稿，請依上方現有摘要決議整理)'}`;
               '<div id="qsTitle" class="qs-title">會議內容速覽</div>' +
             '</div>' +
             '<div class="qs-head-actions">' +
-              '<button type="button" id="qsEnterWorkbenchBtn" class="btn btn-primary" style="font-size:12px; padding:6px 12px;">完整載入至工作台 ↗</button>' +
+              '<button type="button" id="qsEnterWorkbenchBtn" class="btn btn-primary" style="font-size:12px; padding:6px 12px;">完整載入至工作艙 ↗</button>' +
               '<button type="button" id="qsCloseBtn" class="btn" style="font-size:13px; padding:5px 10px;">×</button>' +
             '</div>' +
           '</div>' +
@@ -17204,47 +18760,149 @@ ${segLines || '(無逐字稿，請依上方現有摘要決議整理)'}`;
     btn.textContent = '◆ ' + tag;
   }
 
-  function mountTopbarControls() {
-    const topActions = document.querySelector('.topbar .top-actions') || document.querySelector('.topbar');
-    if (topActions) {
-      if (!document.getElementById('workspaceModeSwitch')) {
-        const sw = document.createElement('div');
-        sw.id = 'workspaceModeSwitch';
-        sw.className = 'sp-mode-switch';
-        sw.innerHTML =
-          '<button type="button" id="spModeBtnStandard" class="sp-mode-btn is-active" title="標準雙欄錄製與筆記工作台">' +
-            '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2"></rect><line x1="12" y1="4" x2="12" y2="20"></line></svg>' +
-            '<span>標準工作台</span>' +
-          '</button>' +
-          '<button type="button" id="spModeBtnDeck" class="sp-mode-btn" title="進入 3D 會議時光空間艙">' +
-            '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2L3 7l9 5 9-5-9-5z"></path><path d="M3 17l9 5 9-5"></path><path d="M3 12l9 5 9-5"></path></svg>' +
-            '<span>3D 空間艙</span>' +
-          '</button>';
-        topActions.insertBefore(sw, topActions.firstChild);
+  function refreshParamsPopoverSummaryLabel() {
+    const lbl = document.getElementById('spParamsSummaryText');
+    if (!lbl) return;
+    const langSel = document.getElementById('langModeSelect');
+    const gainSel = document.getElementById('micGainSelect');
+    let langShort = '收音參數';
+    if (langSel && langSel.options && langSel.selectedIndex >= 0) {
+      const rawText = String(langSel.options[langSel.selectedIndex].text || '').trim();
+      if (rawText) langShort = rawText.slice(0, 5);
+    }
+    const gainVal = gainSel && gainSel.value ? gainSel.value : '1.0';
+    lbl.textContent = '收音與 AI (' + langShort + (gainVal !== '1.0' ? '·' + gainVal + 'x' : '') + ') ▾';
+  }
 
-        const btnStd = sw.querySelector('#spModeBtnStandard');
-        const btnDeck = sw.querySelector('#spModeBtnDeck');
-        if (btnStd) btnStd.addEventListener('click', closeSpatialDeckMode);
-        if (btnDeck) btnDeck.addEventListener('click', openSpatialDeckMode);
+  function mountTopbarControls() {
+    if (document.body && !document.body._spSidebarInitDone) {
+      document.body._spSidebarInitDone = true;
+      document.body.classList.add('sp-sidebar-collapsed');
+    }
+
+    const topbar = document.querySelector('.topbar');
+    const titleGroup = document.querySelector('.topbar .title-group');
+    const topActions = document.querySelector('.topbar .top-actions') || topbar;
+
+    // 1. 左區 (.title-group)：掛載 [← 3D 舞台] 與 [側欄清單] 切換鈕
+    if (titleGroup) {
+      if (!document.getElementById('spReturnStageBtn')) {
+        const backBtn = document.createElement('button');
+        backBtn.type = 'button';
+        backBtn.id = 'spReturnStageBtn';
+        backBtn.className = 'sp-return-stage-btn';
+        backBtn.title = '返回極簡北歐 3D 空間舞台首頁';
+        backBtn.textContent = '← 3D 舞台';
+        titleGroup.insertBefore(backBtn, titleGroup.firstChild);
+        backBtn.addEventListener('click', function () {
+          openSpatialDeckMode(_spDepth === 2 ? 2 : 1);
+        });
       }
 
-      if (!document.getElementById('openCmdHudBtn')) {
-        const cmdBtn = document.createElement('button');
-        cmdBtn.type = 'button';
-        cmdBtn.id = 'openCmdHudBtn';
-        cmdBtn.className = 'cmd-trigger-btn';
-        cmdBtn.title = '開啟全域極速指揮艙 (Ctrl+K)';
-        cmdBtn.innerHTML =
-          '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"></circle><line x1="20" y1="20" x2="16.2" y2="16.2"></line></svg>' +
-          '<span>極速指揮</span>' +
-          '<span class="cmd-kbd-badge">Ctrl+K</span>';
-        const sw = document.getElementById('workspaceModeSwitch');
-        if (sw && sw.nextSibling) {
-          topActions.insertBefore(cmdBtn, sw.nextSibling);
+      if (!document.getElementById('spSidebarToggleBtn')) {
+        const sbBtn = document.createElement('button');
+        sbBtn.type = 'button';
+        sbBtn.id = 'spSidebarToggleBtn';
+        sbBtn.className = 'sp-sidebar-toggle-btn';
+        sbBtn.title = '展開或收合左側歷史清單與系統設定欄';
+        sbBtn.innerHTML =
+          '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2"></rect><line x1="9" y1="4" x2="9" y2="20"></line></svg>' +
+          '<span>側欄</span>';
+        const backBtn = document.getElementById('spReturnStageBtn');
+        if (backBtn && backBtn.nextSibling) {
+          titleGroup.insertBefore(sbBtn, backBtn.nextSibling);
         } else {
-          topActions.appendChild(cmdBtn);
+          titleGroup.insertBefore(sbBtn, titleGroup.firstChild);
         }
-        cmdBtn.addEventListener('click', function () { openCommandHud(); });
+        sbBtn.addEventListener('click', function () {
+          if (!document.body) return;
+          const collapsed = document.body.classList.toggle('sp-sidebar-collapsed');
+          sbBtn.classList.toggle('is-active', !collapsed);
+        });
+      }
+    }
+
+    // 2. 中區 (#spStudioCenterSlot)：置中掛載 [極速指揮與搜尋 Ctrl+K]
+    if (topbar && !document.getElementById('spStudioCenterSlot')) {
+      const centerSlot = document.createElement('div');
+      centerSlot.id = 'spStudioCenterSlot';
+      const cmdBtn = document.createElement('button');
+      cmdBtn.type = 'button';
+      cmdBtn.id = 'openCmdHudBtn';
+      cmdBtn.className = 'cmd-trigger-btn';
+      cmdBtn.title = '開啟全域極速指揮艙與穿透搜尋 (Ctrl+K)';
+      cmdBtn.innerHTML =
+        '<span class="cmd-trigger-left">' +
+          '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"></circle><line x1="20" y1="20" x2="16.2" y2="16.2"></line></svg>' +
+          '<span>極速指揮與搜尋</span>' +
+        '</span>' +
+        '<span class="cmd-kbd-badge">Ctrl+K</span>';
+      centerSlot.appendChild(cmdBtn);
+
+      if (topActions && topActions.parentNode === topbar) {
+        topbar.insertBefore(centerSlot, topActions);
+      } else {
+        topbar.appendChild(centerSlot);
+      }
+      cmdBtn.addEventListener('click', function () { openCommandHud(); });
+    }
+
+    // 3. 右區 (.top-actions)：建立 #spParamsPopoverWrap 並無損收攏 5 組 .pill-select
+    if (topActions && !document.getElementById('spParamsPopoverWrap')) {
+      const wrap = document.createElement('div');
+      wrap.id = 'spParamsPopoverWrap';
+      wrap.innerHTML =
+        '<button type="button" id="spParamsPopoverBtn" title="設定收音語言、自動聲紋分人、AI 精修策略、雙語對照與麥克風增益">' +
+          '<svg viewBox="0 0 24 24" aria-hidden="true">' +
+            '<line x1="4" y1="21" x2="4" y2="14"></line><line x1="4" y1="10" x2="4" y2="3"></line>' +
+            '<line x1="12" y1="21" x2="12" y2="12"></line><line x1="12" y1="8" x2="12" y2="3"></line>' +
+            '<line x1="20" y1="21" x2="20" y2="16"></line><line x1="20" y1="12" x2="20" y2="3"></line>' +
+            '<line x1="1" y1="14" x2="7" y2="14"></line><line x1="9" y1="8" x2="15" y2="8"></line><line x1="17" y1="16" x2="23" y2="16"></line>' +
+          '</svg>' +
+          '<span id="spParamsSummaryText">收音與 AI 參數 ▾</span>' +
+        '</button>' +
+        '<div id="spParamsPopoverPanel" role="region" aria-label="收音與 AI 轉寫參數">' +
+          '<div class="sp-params-head">' +
+            '<span class="sp-params-title">收音與 AI 轉寫參數</span>' +
+            '<span class="sp-params-sub">100% 即時生效</span>' +
+          '</div>' +
+          '<div class="sp-params-list" id="spParamsListMount"></div>' +
+        '</div>';
+
+      topActions.insertBefore(wrap, topActions.firstChild);
+
+      const listMount = wrap.querySelector('#spParamsListMount');
+      if (topbar && listMount) {
+        const pillSelects = topbar.querySelectorAll('.pill-select');
+        for (let i = 0; i < pillSelects.length; i++) {
+          const pillEl = pillSelects[i];
+          if (wrap.contains(pillEl)) continue;
+          listMount.appendChild(pillEl);
+          const sel = pillEl.querySelector('select');
+          if (sel) {
+            sel.addEventListener('change', refreshParamsPopoverSummaryLabel);
+          }
+        }
+      }
+
+      refreshParamsPopoverSummaryLabel();
+
+      const popBtn = wrap.querySelector('#spParamsPopoverBtn');
+      if (popBtn) {
+        popBtn.addEventListener('click', function (ev) {
+          ev.stopPropagation();
+          wrap.classList.toggle('is-open');
+        });
+      }
+
+      if (!window._spParamsOutsideBound) {
+        window._spParamsOutsideBound = true;
+        document.addEventListener('pointerdown', function (ev) {
+          const curWrap = document.getElementById('spParamsPopoverWrap');
+          if (!curWrap || !curWrap.classList.contains('is-open')) return;
+          if (ev.target && curWrap.contains(ev.target)) return;
+          curWrap.classList.remove('is-open');
+        });
       }
     }
 
@@ -17257,7 +18915,7 @@ ${segLines || '(無逐字稿，請依上方現有摘要決議整理)'}`;
       }
     } else if (!document.getElementById('currentProjectTagBtn')) {
       const titleEl = document.getElementById('meetingTitle');
-      const hostGroup = (titleEl && titleEl.parentNode) || document.querySelector('.topbar');
+      const hostGroup = (titleEl && titleEl.parentNode) || topbar;
       if (hostGroup) {
         const fbBtn = document.createElement('button');
         fbBtn.type = 'button';
@@ -17522,6 +19180,7 @@ ${segLines || '(無逐字稿，請依上方現有摘要決議整理)'}`;
       _fsForceOpenEmpty = false;
       _fsActiveSegIdx = -1;
       syncFallbackTagButtonUI();
+      refreshParamsPopoverSummaryLabel();
       renderFilmstripBar();
       refreshSpatialDeckIfOpen();
     });
@@ -17564,6 +19223,11 @@ ${segLines || '(無逐字稿，請依上方現有摘要決議整理)'}`;
 
     wrapHostMethod('renderSidebarHistory', function () {
       enhanceSidebarHistoryItems();
+      refreshSpatialDeckIfOpen();
+    });
+
+    wrapHostMethod('deleteSession', function () {
+      setTimeout(refreshSpatialDeckIfOpen, 120);
     });
   }
 
@@ -17575,6 +19239,8 @@ ${segLines || '(無逐字稿，請依上方現有摘要決議整理)'}`;
     wrapAllHostFunctions();
     enhanceSidebarHistoryItems();
     renderFilmstripBar();
+    // 預設啟動即進入極簡北歐 01 專案舞台首頁（主畫面即 3D 滑動舞台）
+    openSpatialDeckMode(1);
   }
 
   /* --------------------------------------------------------------------------
@@ -17583,6 +19249,7 @@ ${segLines || '(無逐字稿，請依上方現有摘要決議整理)'}`;
   window.openSpatialDeckMode = openSpatialDeckMode;
   window.closeSpatialDeckMode = closeSpatialDeckMode;
   window.diveSpatialLayer = diveSpatialLayer;
+  window.diveSpatialLayerTo = diveSpatialLayerTo;
   window.enterSessionFromSpatialDeck = enterSessionFromSpatialDeck;
   window.renderFilmstripBar = renderFilmstripBar;
   window.onFilmstripCardClick = onFilmstripCardClick;
@@ -17597,6 +19264,7 @@ ${segLines || '(無逐字稿，請依上方現有摘要決議整理)'}`;
     getProjTrack: function () { return _projTrack; },
     getSessTrack: function () { return _sessTrack; },
     getDepth: function () { return _spDepth; },
+    getTheme: function () { return _spTheme; },
     isDeckOpen: function () { return _spIsOpen; },
     isQuickSheetOpen: function () { return _qsIsOpen; },
     isCommandHudOpen: function () { return _cmdIsOpen; },
@@ -17613,7 +19281,7 @@ ${segLines || '(無逐字稿，請依上方現有摘要決議整理)'}`;
   }
 })();
 
-  </script>
+</script>
 </body>
 
 </html>
