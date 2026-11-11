@@ -5549,7 +5549,8 @@
 #spatialDeckOverlay[data-spatial-theme="dark"] .sp-studio-action-slot .btn:not(.btn-audio-rec):not(.btn-primary):not(.btn-recording-active),
 #spatialDeckOverlay[data-spatial-theme="dark"] .media-bar .btn:not(.btn-smart-active),
 #spatialDeckOverlay[data-spatial-theme="dark"] .quick-input-bar .btn,
-#spatialDeckOverlay[data-spatial-theme="dark"] .transcript-toolbar .btn {
+#spatialDeckOverlay[data-spatial-theme="dark"] .transcript-toolbar .btn,
+#spatialDeckOverlay[data-spatial-theme="dark"] #spMountVideoBody .btn:not(.btn-primary) {
   background: #1E2B3C !important;
   color: #F4F3EF !important;
   border-color: rgba(148, 163, 184, 0.32) !important;
@@ -5604,6 +5605,33 @@
 
 #spatialDeckOverlay[data-spatial-theme="dark"] .note-body {
   color: #E2E8F0 !important;
+}
+
+#spatialDeckOverlay[data-spatial-theme="dark"] #videoLiveSubtitleBox {
+  background: #14202E !important;
+  border-color: rgba(88, 179, 134, 0.38) !important;
+  color: #F4F3EF !important;
+}
+
+#spatialDeckOverlay[data-spatial-theme="dark"] #videoLiveMicSourceLabel,
+#spatialDeckOverlay[data-spatial-theme="dark"] #videoLiveVolBadge {
+  color: #6EE7B7 !important;
+}
+
+#spatialDeckOverlay[data-spatial-theme="dark"] #videoLiveSubtitleFeed {
+  color: #F4F3EF !important;
+}
+
+#spatialDeckOverlay[data-spatial-theme="dark"] #liveZeroVolDiagBox {
+  background: #2B1F14 !important;
+  border-color: rgba(245, 158, 11, 0.45) !important;
+  color: #FDE68A !important;
+}
+
+#spatialDeckOverlay[data-spatial-theme="dark"] #inlineDiagMicSelect {
+  background: #16202C !important;
+  border-color: rgba(245, 158, 11, 0.45) !important;
+  color: #F4F3EF !important;
 }
 
 /* 記憶帳號單筆刪除按鈕與清除按鈕 */
@@ -5791,6 +5819,9 @@
   .sp-brand-logo {
     height: 28px !important;
     max-height: 28px !important;
+    width: auto !important;
+    min-width: 31px !important;
+    flex-shrink: 0 !important;
   }
 
   .sp-brand-badge {
@@ -5818,7 +5849,8 @@
   .sp-topbar-right #spQuickAudioBtn,
   .sp-topbar-right #spQuickVideoBtn,
   .sp-topbar-right #spTopScreenRecBtn,
-  .sp-topbar-right #spTopNewRecBtn {
+  .sp-topbar-right #spTopNewRecBtn,
+  .sp-topbar-right #spTopUserWrap {
     display: none !important;
   }
 
@@ -6866,7 +6898,7 @@
     // ============================================================================
     window.NOVERA_LOGO_FALLBACK_URI = document.querySelector('link[rel="icon"]')?.href || 'https://您的網域.github.io/assets/novera_logo.png';
     // 嚴格零寫死金鑰原則：所有 API 金鑰一律僅從使用者本機瀏覽器讀取，絕不在原始碼寫死任何金鑰或憑證！
-    const PRIMARY_MODEL = 'gemini-2.5-flash';
+    const PRIMARY_MODEL = 'gemini-3.5-flash-lite';
 
     const DEFAULT_NOTE_OVERVIEW_EMPTY = '尚無摘要。請先開始錄音、錄影或匯入檔案後，點擊右上角「生成會議紀錄」。';
     const DEFAULT_NOTE_OVERVIEW_ALT = '尚無摘要。請點擊右上角「生成會議紀錄」。';
@@ -11026,23 +11058,35 @@ ${retrieval.contextText}
       }
     }
 
-    // 多重模型自動容錯輪詢池：當單一模型發生 HTTP 429 (配額上限) 或 503 (忙碌) 時，0.1 秒無縫切換下一通道
+    // 多重模型自動容錯輪詢池：支援最新 Gemini 3.x 與舊版金鑰雙軌容錯，並具單通道逾時自動切換保護
     async function callGeminiApi(preferredModel, parts) {
       const apiKey = getEffectiveGeminiKey();
       if (!apiKey) {
-        throw new Error('尚未設定 Gemini API 金鑰（請點擊「系統設定與自訂詞庫」貼上您的個人金鑰，金鑰僅存於本機瀏覽器）');
+        throw new Error('尚未設定 Gemini API 金鑰（請點擊「設定 AI 金鑰」貼上您的個人金鑰，金鑰僅存於本機瀏覽器）');
       }
       const hasMedia = parts.some(p => p && p.inlineData);
+      const perAttemptTimeoutMs = hasMedia ? 28000 : 14000;
 
-      const candidateModels = hasMedia
-        ? ['gemini-2.5-flash', 'gemini-2.0-flash', 'gemini-2.5-flash-lite', 'gemini-flash-latest', 'gemini-flash-lite-latest', 'gemini-1.5-flash']
-        : ['gemini-2.5-flash', 'gemini-2.0-flash', 'gemini-2.5-flash-lite', 'gemini-flash-latest', 'gemini-flash-lite-latest', 'gemini-1.5-flash'];
+      const basePool = [
+        'gemini-3.5-flash-lite',
+        'gemini-3.1-flash-lite',
+        'gemini-flash-lite-latest',
+        'gemini-2.5-flash',
+        'gemini-2.0-flash',
+        'gemini-2.5-flash-lite',
+        'gemini-flash-latest'
+      ];
+      const candidateModels = preferredModel && !basePool.includes(preferredModel)
+        ? [preferredModel, ...basePool]
+        : basePool;
 
       let lastError = null;
 
       for (const model of candidateModels) {
+        const ctrl = typeof AbortController !== 'undefined' ? new AbortController() : null;
+        const timerId = ctrl ? setTimeout(() => { try { ctrl.abort(); } catch (_) {} }, perAttemptTimeoutMs) : null;
         try {
-          const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`, {
+          const fetchOpts = {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
@@ -11052,7 +11096,10 @@ ${retrieval.contextText}
                 maxOutputTokens: 8192
               }
             })
-          });
+          };
+          if (ctrl) fetchOpts.signal = ctrl.signal;
+          const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`, fetchOpts);
+          if (timerId) clearTimeout(timerId);
           if (res.ok) {
             apiCallCount++;
             refreshApiKeyStatusBadge();
@@ -11064,7 +11111,10 @@ ${retrieval.contextText}
             lastError = new Error(`HTTP ${res.status}: ${errBody.slice(0, 120)}`);
           }
         } catch (e) {
-          lastError = e;
+          if (timerId) clearTimeout(timerId);
+          lastError = e && e.name === 'AbortError'
+            ? new Error(`模型 ${model} 回應逾時，已自動切換備援通道`)
+            : e;
         }
       }
       throw lastError || new Error('API 無法連線');
