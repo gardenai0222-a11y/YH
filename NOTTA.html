@@ -12169,12 +12169,14 @@ ${segLines || '(無逐字稿，請依上方現有摘要決議整理)'}`;
       refreshOAuthGateEnvironmentUI(true);
     }
 
+    const DEFAULT_PUBLIC_GOOGLE_CLIENT_ID = '857223967291-4phlpvf5v72k6nate1arpmnum0p9193t.apps.googleusercontent.com';
+
     function refreshOAuthGateEnvironmentUI(skipInputFill = false) {
       const isFileProto = window.location.protocol === 'file:';
       let savedCid = '';
       try {
-        savedCid = (localStorage.getItem('yh_notta_google_client_id') || '').trim();
-      } catch (e) {}
+        savedCid = (localStorage.getItem('yh_notta_google_client_id') || '').trim() || DEFAULT_PUBLIC_GOOGLE_CLIENT_ID;
+      } catch (e) { savedCid = DEFAULT_PUBLIC_GOOGLE_CLIENT_ID; }
 
       const gateInput = document.getElementById('gateGoogleClientIdInput');
       const hubInput = document.getElementById('googleClientIdInput');
@@ -12268,8 +12270,8 @@ ${segLines || '(無逐字稿，請依上方現有摘要決議整理)'}`;
       const gateVisible = gateEl && gateEl.style.display !== 'none';
       const gateInput = document.getElementById('gateGoogleClientIdInput');
       const hubInput = document.getElementById('googleClientIdInput');
-      let savedCid = '';
-      try { savedCid = (localStorage.getItem('yh_notta_google_client_id') || '').trim(); } catch (e) {}
+      let savedCid = DEFAULT_PUBLIC_GOOGLE_CLIENT_ID;
+      try { savedCid = (localStorage.getItem('yh_notta_google_client_id') || '').trim() || DEFAULT_PUBLIC_GOOGLE_CLIENT_ID; } catch (e) {}
       const clientId = (gateVisible ? gateInput?.value : (hubInput?.value || gateInput?.value))?.trim() || savedCid;
 
       if (!isValidGoogleClientId(clientId)) {
@@ -16793,7 +16795,7 @@ ${segLines || '(無逐字稿，請依上方現有摘要決議整理)'}`;
      04 會議內容 (depth=3) · 05 AI 智慧中樞 (depth=4)
      -------------------------------------------------------------------------- */
   const SPATIAL_THEME_KEY = 'novera_notta_nordic_spatial_theme';
-  const BUILTIN_GOOGLE_CLIENT_ID = '';
+  const BUILTIN_GOOGLE_CLIENT_ID = '857223967291-4phlpvf5v72k6nate1arpmnum0p9193t.apps.googleusercontent.com';
   let _spIsOpen = true;
   let _spDepth = 0; // 預設啟動於最上層 01 帳號與基本設定 (0..4)
   let _spTheme = 'light';
@@ -17318,6 +17320,9 @@ ${segLines || '(無逐字稿，請依上方現有摘要決議整理)'}`;
     try {
       localStorage.removeItem('yh_notta_google_user');
     } catch (_) {}
+    if (window.google && window.google.accounts && window.google.accounts.id && typeof window.google.accounts.id.disableAutoSelect === 'function') {
+      try { window.google.accounts.id.disableAutoSelect(); } catch (_) {}
+    }
     if (typeof window.skipGoogleLoginAsGuest === 'function') {
       try { window.skipGoogleLoginAsGuest(); } catch (_) {}
     }
@@ -17403,11 +17408,11 @@ ${segLines || '(無逐字稿，請依上方現有摘要決議整理)'}`;
 
     const envBannerHtml = isFileProto
       ? '<div style="padding:10px 12px; border-radius:10px; background:rgba(180,83,9,0.12); border:1px solid rgba(180,83,9,0.38); color:#92400E; font-size:12px; line-height:1.5;">' +
-          '<strong>⚠️ 偵測到目前以本機檔案 (<code>file:///</code>) 直接開啟：</strong><br/>' +
+          '<strong>偵測到目前以本機檔案 (<code>file:///</code>) 直接開啟：</strong><br/>' +
           '線上網域設定一次公開 Client ID 即可啟用 Google 官方彈窗；未設定前可先輸入顯示名稱作為本機會議主講人稱謂。若要使用 Google 官方彈窗，請點兩下執行 <strong><code>啟動_NOTTA_本機伺服器.bat</code></strong>（<code>http://localhost:8765</code>）或於線上網域開啟。' +
         '</div>'
       : '<div style="padding:10px 12px; border-radius:10px; background:rgba(47,93,70,0.10); border:1px solid rgba(47,93,70,0.32); color:#2F5D46; font-size:12px; line-height:1.5;">' +
-          '<strong>💡 誠實登入引導：</strong>線上網域（<code>' + safeEscapeHtml(currentOrigin) + '</code>）設定一次公開 Client ID 即可啟用 Google 官方彈窗；<strong>未設定前可先於下方輸入顯示名稱作為本機會議主講人稱謂</strong>，立即開始會議錄音與轉寫。' +
+          '<strong>登入引導：</strong>線上網域（<code>' + safeEscapeHtml(currentOrigin) + '</code>）設定一次公開 Client ID 即可啟用 Google 官方彈窗；<strong>未設定前可先於下方輸入顯示名稱作為本機會議主講人稱謂</strong>，立即開始會議錄音與轉寫。' +
         '</div>';
 
     const rememberedHtml = remembered.length > 0
@@ -17564,6 +17569,7 @@ ${segLines || '(無逐字稿，請依上方現有摘要決議整理)'}`;
     }
   }
 
+  let _inCommitGoogleLogin = false;
   function commitGoogleAccountLogin(acct, diveToProjectsAfter) {
     if (!acct || !acct.email) return false;
     const email = String(acct.email || '').trim();
@@ -17589,8 +17595,13 @@ ${segLines || '(無逐字稿，請依上方現有摘要決議整理)'}`;
     const gate = document.getElementById('googleLoginGate');
     if (gate) gate.style.display = 'none';
 
-    if (typeof window.applyLoggedInGoogleUserUI === 'function') {
-      try { window.applyLoggedInGoogleUserUI(userObj, true); } catch (_) {}
+    _inCommitGoogleLogin = true;
+    try {
+      if (typeof window.applyLoggedInGoogleUserUI === 'function') {
+        window.applyLoggedInGoogleUserUI(userObj, true);
+      }
+    } catch (_) {} finally {
+      _inCommitGoogleLogin = false;
     }
     closeGoogleOneTapPrompt();
     renderSpatialLayer0Account(true);
@@ -17752,8 +17763,9 @@ ${segLines || '(無逐字稿，請依上方現有摘要決議整理)'}`;
         window.google.accounts.id.initialize({
           client_id: cid,
           callback: handleSpatialGoogleOneTapCredential,
-          auto_select: true,
+          auto_select: false,
           itp_support: true,
+          use_fedcm_for_prompt: true,
           cancel_on_tap_outside: false
         });
         if (!getSavedGoogleUser()) {
@@ -17891,7 +17903,7 @@ ${segLines || '(無逐字稿，請依上方現有摘要決議整理)'}`;
             '<span class="sp-chip ' + (isOAuthVerified ? '' : 'is-muted') + '">' + safeEscapeHtml(statusBadgeText) + '</span>' +
           '</div>' +
           '<div class="sp-card-title">Google 帳號登入與日曆同步</div>' +
-          '<div class="sp-card-sub">設定公開 OAuth Client ID 後，點擊下方按鈕即可彈出正版 Google (accounts.google.com) 登入視窗</div>' +
+          '<div class="sp-card-sub">' + (cid ? '進入網頁即自動詢問您的 Google 帳號（點選即登入），亦可點擊下方按鈕隨時切換 Google 帳號與日曆' : '設定公開 OAuth Client ID 後，點擊下方按鈕即可彈出正版 Google 登入視窗') + '</div>' +
         '</div>' +
       '</div>' +
       '<div class="sp-acct-scroll">' +
@@ -17910,17 +17922,14 @@ ${segLines || '(無逐字稿，請依上方現有摘要決議整理)'}`;
             '</button>' +
             '<button type="button" class="sp-act-btn" id="spOpenGoogleCalHubBtn" style="height:40px; padding:0 13px;">Google 日曆 / Meet</button>' +
           '</div>' +
-          '<div class="sp-oauth-details" style="padding:10px 12px;">' +
-            '<div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:5px;">' +
-              '<span style="font-size:11.5px; font-weight:800; color:var(--sp-t1);">Google Cloud OAuth 2.0 Client ID（彈出正版 Google 帳密視窗必備公開識別碼）</span>' +
-              '<span class="sp-chip ' + (cid ? '' : 'is-amber') + '" style="font-size:10px;">' + (cid ? 'Client ID 已就緒 ✓' : '待貼入 Client ID') + '</span>' +
-            '</div>' +
-            '<div style="display:flex; gap:6px;">' +
+          '<details class="sp-oauth-details" id="spOAuthCidDetails"' + (cid ? '' : ' open') + '>' +
+            '<summary>' + (cid ? 'Google OAuth 2.0 進階憑證設定（已內建官方 Client ID ✓）' : '貼上 Google Cloud OAuth 2.0 Client ID（啟用官方登入視窗）') + '</summary>' +
+            '<div style="display:flex; gap:6px; margin-top:8px;">' +
               '<input type="text" id="spClientIdInput" class="sp-acct-input" placeholder="貼上 xxx.apps.googleusercontent.com（公開識別碼，設定一次永久記憶）" value="' + safeEscapeHtml(cid) + '" style="font-family:Consolas,monospace; font-size:11.5px; flex:1;" />' +
               '<button type="button" class="sp-act-btn is-enter" id="spTriggerOauthPopupBtn" style="height:34px; flex-shrink:0;">儲存並彈出登入視窗</button>' +
               '<button type="button" class="sp-act-btn" id="spGetCidHelpBtn" style="height:34px; flex-shrink:0;">取得憑證 ↗</button>' +
             '</div>' +
-          '</div>' +
+          '</details>' +
           '<details class="sp-oauth-details" id="spOtherAccountDetails">' +
             '<summary>離線本機主講者稱謂設定（免 Google 驗證・僅用於本機逐字稿講者標記）</summary>' +
             '<div class="sp-acct-form-grid" style="margin-top:8px;">' +
@@ -18171,6 +18180,10 @@ ${segLines || '(無逐字稿，請依上方現有摘要決議整理)'}`;
     const switchBtn = card0.querySelector('#spAcctSwitchBtn');
     if (switchBtn) {
       switchBtn.addEventListener('click', function () {
+        if (getEffectiveGoogleClientId() && window.location.protocol !== 'file:' && typeof window.startRealGoogleOAuthSignIn === 'function') {
+          window.startRealGoogleOAuthSignIn(false);
+          return;
+        }
         openSpatialGoogleOAuthModal();
       });
     }
@@ -22345,6 +22358,14 @@ ${segLines || '(無逐字稿，請依上方現有摘要決議整理)'}`;
       if (_spIsOpen) enterMeetingContent3D(0);
     });
 
+    wrapHostMethod('applyLoggedInGoogleUserUI', function (userObj) {
+      if (_inCommitGoogleLogin || !userObj || !userObj.email) return;
+      saveAccountToHistory(userObj);
+      closeSpatialGoogleOAuthModal();
+      closeGoogleOneTapPrompt();
+      renderSpatialLayer0Account(true);
+    });
+
     window.openGoogleLoginGate = function () {
       const gate = document.getElementById('googleLoginGate');
       if (gate) gate.style.display = 'none';
@@ -22357,6 +22378,10 @@ ${segLines || '(無逐字稿，請依上方現有摘要決議整理)'}`;
         diveSpatialLayerTo(0);
       }
       _acctTrack.goTo(0, false);
+      if (getEffectiveGoogleClientId() && window.location.protocol !== 'file:' && typeof window.startRealGoogleOAuthSignIn === 'function') {
+        window.startRealGoogleOAuthSignIn(false);
+        return;
+      }
       openSpatialGoogleOAuthModal();
     };
   }
