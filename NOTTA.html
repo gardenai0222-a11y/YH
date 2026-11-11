@@ -2772,6 +2772,202 @@
   color: var(--sp-t2);
 }
 
+/* 右上角目前登入使用者身分膠囊與帳號選單 (.sp-top-user-wrap) */
+.sp-top-user-wrap {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  flex-shrink: 0;
+}
+
+.sp-top-user-btn {
+  padding: 0 9px 0 5px;
+  gap: 6px;
+  border-color: var(--sp-bdr-strong);
+}
+
+.sp-top-user-btn.is-guest {
+  padding: 0 10px;
+}
+
+.sp-top-user-btn .sp-google-g-svg {
+  width: 14px;
+  height: 14px;
+  fill: initial;
+  stroke: none;
+  flex-shrink: 0;
+}
+
+.sp-top-user-avatar {
+  position: relative;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: var(--sp-cyan, #2F5D46);
+  color: #FFFFFF;
+  font-size: 11px;
+  font-weight: 800;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  overflow: visible;
+}
+
+.sp-top-user-avatar img {
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  object-fit: cover;
+  display: block;
+  border: 1px solid rgba(47, 93, 70, 0.25);
+}
+
+.sp-top-user-dot {
+  position: absolute;
+  right: -1px;
+  bottom: -1px;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #22A06B;
+  border: 1.5px solid var(--sp-bar-bg, #FFFFFF);
+}
+
+.sp-top-user-name {
+  max-width: 88px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-weight: 700;
+  font-size: 11.5px;
+}
+
+.sp-top-user-caret {
+  font-size: 10px;
+  opacity: 0.68;
+  line-height: 1;
+}
+
+.sp-top-user-menu {
+  display: none;
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  width: 288px;
+  max-width: calc(100vw - 24px);
+  padding: 14px;
+  border-radius: 15px;
+  background: var(--sp-card-bg-front, #FFFFFF);
+  color: var(--sp-t1, #191918);
+  border: 1px solid var(--sp-bdr-front, rgba(47, 93, 70, 0.35));
+  box-shadow: 0 18px 46px rgba(15, 23, 20, 0.22);
+  z-index: 9930;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.sp-top-user-wrap.is-open .sp-top-user-menu {
+  display: flex;
+}
+
+.sp-top-user-menu-head {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid var(--sp-bdr, rgba(25, 25, 24, 0.1));
+}
+
+.sp-top-user-menu-avatar {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: var(--sp-cyan, #2F5D46);
+  color: #FFFFFF;
+  font-size: 16px;
+  font-weight: 800;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  overflow: hidden;
+}
+
+.sp-top-user-menu-avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.sp-top-user-menu-btn {
+  width: 100%;
+  height: 34px;
+  padding: 0 12px;
+  border-radius: 9px;
+  border: 1px solid var(--sp-bdr-strong, rgba(25, 25, 24, 0.16));
+  background: var(--sp-pill-bg, #F6F5F0);
+  color: var(--sp-t1, #191918);
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  transition: all 0.16s ease;
+}
+
+.sp-top-user-menu-btn:hover {
+  border-color: var(--sp-bdr-front, #2F5D46);
+  background: var(--sp-cyan-soft, rgba(47, 93, 70, 0.1));
+  color: var(--sp-cyan, #2F5D46);
+}
+
+.sp-top-user-menu-btn.is-danger {
+  color: #B42318;
+  border-color: rgba(180, 35, 24, 0.24);
+}
+
+.sp-top-user-menu-btn.is-danger:hover {
+  background: rgba(180, 35, 24, 0.08);
+  border-color: rgba(180, 35, 24, 0.45);
+  color: #B42318;
+}
+
+@media (max-width: 1480px) {
+  .sp-cmd-searchbar {
+    width: clamp(128px, 13vw, 210px);
+  }
+  .sp-cmd-searchbar .cmd-kbd-badge {
+    display: none;
+  }
+  .sp-crumb-pill {
+    padding: 3px 6.5px;
+    font-size: 10.5px;
+  }
+  .sp-topbar-right .sp-top-btn {
+    padding: 0 7.5px;
+    font-size: 11px;
+  }
+  .sp-topbar-right .sp-top-user-btn {
+    padding: 0 8px 0 4px;
+  }
+  .sp-top-user-name {
+    max-width: 68px;
+  }
+}
+
+@media (max-width: 768px) {
+  .sp-topbar-right .sp-top-user-btn.is-logged-in {
+    padding: 0 4px !important;
+  }
+  .sp-topbar-right .sp-top-user-btn.is-logged-in .sp-top-user-name,
+  .sp-topbar-right .sp-top-user-btn.is-logged-in .sp-top-user-caret {
+    display: none !important;
+  }
+}
+
 /* 左側五層空間深度軌 (#spatialDepthRail) */
 #spatialDepthRail {
   position: absolute;
@@ -16043,6 +16239,8 @@ ${segLines || '(無逐字稿，請依上方現有摘要決議整理)'}`;
       <button type="button" id="spFlatModeBtn" class="sp-top-btn" title="切換至傳統平面雙欄檢視">
         <span>平面雙欄</span>
       </button>
+
+      <div id="spTopUserWrap" class="sp-top-user-wrap"></div>
     </div>
   </header>
 
@@ -17788,7 +17986,168 @@ ${segLines || '(無逐字稿，請依上方現有摘要決議整理)'}`;
     }).catch(function () {});
   }
 
+  function closeAllTopUserMenus() {
+    const wraps = document.querySelectorAll('.sp-top-user-wrap.is-open');
+    for (let i = 0; i < wraps.length; i++) {
+      wraps[i].classList.remove('is-open');
+    }
+  }
+
+  function populateSingleTopUserWrap(wrapEl) {
+    if (!wrapEl) return;
+    const savedUser = getSavedGoogleUser();
+    const remembered = detectBrowserDefaultGoogleAccounts();
+    wrapEl.classList.remove('is-open');
+
+    if (!savedUser || !savedUser.email) {
+      wrapEl.innerHTML =
+        '<button type="button" class="sp-top-btn sp-top-user-btn is-guest" data-top-user-trigger="1" title="點擊選擇您的 Google 帳號登入">' +
+          '<svg class="sp-google-g-svg" viewBox="0 0 48 48" aria-hidden="true">' +
+            '<path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/>' +
+            '<path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/>' +
+            '<path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/>' +
+            '<path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/>' +
+          '</svg>' +
+          '<span class="sp-top-user-name">登入 Google</span>' +
+        '</button>';
+      const guestBtn = wrapEl.querySelector('[data-top-user-trigger]');
+      if (guestBtn) {
+        guestBtn.addEventListener('click', function (ev) {
+          ev.stopPropagation();
+          if (typeof window.openGoogleLoginGate === 'function') window.openGoogleLoginGate();
+        });
+      }
+      return;
+    }
+
+    const dispName = String(savedUser.name || savedUser.email.split('@')[0] || '使用者').trim();
+    const ini = dispName.charAt(0).toUpperCase();
+    const hasPic = Boolean(savedUser.picture && /^https:\/\//i.test(savedUser.picture));
+    const isOAuth = savedUser.authType === 'oauth';
+    const smallAvatarInner = hasPic
+      ? '<img src="' + safeEscapeHtml(savedUser.picture) + '" alt="" referrerpolicy="no-referrer" />'
+      : safeEscapeHtml(ini);
+    const bigAvatarInner = hasPic
+      ? '<img src="' + safeEscapeHtml(savedUser.picture) + '" alt="" referrerpolicy="no-referrer" />'
+      : safeEscapeHtml(ini);
+
+    const otherAccounts = remembered.filter(function (a) {
+      return a && a.email && String(a.email).toLowerCase() !== String(savedUser.email).toLowerCase();
+    }).slice(0, 3);
+
+    const otherRowsHtml = otherAccounts.length > 0
+      ? '<div style="display:flex; flex-direction:column; gap:5px; padding-bottom:8px; border-bottom:1px solid var(--sp-bdr, rgba(25,25,24,0.1));">' +
+          '<div style="font-size:10.5px; font-weight:700; color:var(--sp-t3);">快速切換記憶帳號</div>' +
+          otherAccounts.map(function (acc, idx) {
+            return '<button type="button" class="sp-top-user-menu-btn" data-top-quick-acct="' + idx + '" style="height:32px; font-weight:600;">' +
+              '<span style="overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">' + safeEscapeHtml(acc.name || acc.email) + ' (' + safeEscapeHtml(acc.email) + ')</span>' +
+              '<span>切換 ›</span>' +
+            '</button>';
+          }).join('') +
+        '</div>'
+      : '';
+
+    wrapEl.innerHTML =
+      '<button type="button" class="sp-top-btn sp-top-user-btn is-logged-in" data-top-user-trigger="1" title="目前使用者：' + safeEscapeHtml(dispName + ' (' + savedUser.email + ')') + ' · 點擊管理或切換帳號">' +
+        '<span class="sp-top-user-avatar">' + smallAvatarInner + '<span class="sp-top-user-dot"></span></span>' +
+        '<span class="sp-top-user-name">' + safeEscapeHtml(dispName) + '</span>' +
+        '<span class="sp-top-user-caret">▾</span>' +
+      '</button>' +
+      '<div class="sp-top-user-menu" role="menu" aria-label="目前登入使用者選單">' +
+        '<div class="sp-top-user-menu-head">' +
+          '<div class="sp-top-user-menu-avatar">' + bigAvatarInner + '</div>' +
+          '<div style="min-width:0; flex:1;">' +
+            '<div style="font-size:13.5px; font-weight:800; color:var(--sp-t1); overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">' + safeEscapeHtml(dispName) + '</div>' +
+            '<div style="font-size:11px; color:var(--sp-t2); overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">' + safeEscapeHtml(savedUser.email) + '</div>' +
+            '<span class="sp-chip" style="margin-top:4px; display:inline-block; font-size:10px;">' + (isOAuth ? 'Google OAuth 已驗證 ✓' : '本機稱謂使用中') + '</span>' +
+          '</div>' +
+        '</div>' +
+        otherRowsHtml +
+        '<button type="button" class="sp-top-user-menu-btn" data-top-act="switch"><span>切換其他 Google 帳號</span><span>↗</span></button>' +
+        '<button type="button" class="sp-top-user-menu-btn" data-top-act="layer0"><span>帳號與日曆設定 (01 層)</span><span>›</span></button>' +
+        '<button type="button" class="sp-top-user-menu-btn is-danger" data-top-act="logout"><span>登出目前帳號</span><span>×</span></button>' +
+      '</div>';
+
+    const imgs = wrapEl.querySelectorAll('img');
+    for (let i = 0; i < imgs.length; i++) {
+      imgs[i].addEventListener('error', function () {
+        const p = this.parentNode;
+        if (p) {
+          const dot = p.querySelector('.sp-top-user-dot');
+          p.textContent = ini;
+          if (dot) p.appendChild(dot);
+        }
+      });
+    }
+
+    const trig = wrapEl.querySelector('[data-top-user-trigger]');
+    if (trig) {
+      trig.addEventListener('click', function (ev) {
+        ev.stopPropagation();
+        const wasOpen = wrapEl.classList.contains('is-open');
+        closeAllTopUserMenus();
+        if (!wasOpen) wrapEl.classList.add('is-open');
+      });
+    }
+
+    const quickBtns = wrapEl.querySelectorAll('[data-top-quick-acct]');
+    for (let i = 0; i < quickBtns.length; i++) {
+      quickBtns[i].addEventListener('click', function (ev) {
+        ev.stopPropagation();
+        const idx = Number(this.getAttribute('data-top-quick-acct')) || 0;
+        closeAllTopUserMenus();
+        if (otherAccounts[idx]) commitGoogleAccountLogin(otherAccounts[idx], false);
+      });
+    }
+
+    const switchAct = wrapEl.querySelector('[data-top-act="switch"]');
+    if (switchAct) {
+      switchAct.addEventListener('click', function (ev) {
+        ev.stopPropagation();
+        closeAllTopUserMenus();
+        if (getEffectiveGoogleClientId() && window.location.protocol !== 'file:' && typeof window.startRealGoogleOAuthSignIn === 'function') {
+          window.startRealGoogleOAuthSignIn(false);
+        } else {
+          openSpatialGoogleOAuthModal();
+        }
+      });
+    }
+
+    const l0Act = wrapEl.querySelector('[data-top-act="layer0"]');
+    if (l0Act) {
+      l0Act.addEventListener('click', function (ev) {
+        ev.stopPropagation();
+        closeAllTopUserMenus();
+        if (!_spIsOpen) openSpatialDeckMode(0);
+        else diveSpatialLayerTo(0);
+        _acctTrack.goTo(0, false);
+      });
+    }
+
+    const logoutAct = wrapEl.querySelector('[data-top-act="logout"]');
+    if (logoutAct) {
+      logoutAct.addEventListener('click', function (ev) {
+        ev.stopPropagation();
+        closeAllTopUserMenus();
+        logoutSpatialGoogleAccount(false);
+      });
+    }
+  }
+
+  function syncSpatialTopbarUserBadge() {
+    populateSingleTopUserWrap(document.getElementById('spTopUserWrap'));
+    populateSingleTopUserWrap(document.getElementById('spFlatTopUserWrap'));
+    if (!window._spTopUserOutsideBound) {
+      window._spTopUserOutsideBound = true;
+      document.addEventListener('pointerdown', function (ev) {
+        if (ev.target && ev.target.closest && ev.target.closest('.sp-top-user-wrap')) return;
+        closeAllTopUserMenus();
+      });
+    }
+  }
+
   function renderSpatialLayer0Account(preserveIndex) {
+    syncSpatialTopbarUserBadge();
     const vp = document.getElementById('spAcctViewport');
     if (!vp) return;
 
@@ -17862,7 +18221,7 @@ ${segLines || '(無逐字稿，請依上方現有摘要決議整理)'}`;
         return (
           '<div class="sp-acct-choice-row" data-card0-acct-idx="' + idx + '">' +
             '<div style="display:flex; align-items:center; gap:10px; min-width:0; flex:1;">' +
-              '<div class="sp-acct-avatar" style="width:30px; height:30px; font-size:12.5px;">' + safeEscapeHtml(ini) + '</div>' +
+              '<div class="sp-acct-avatar" style="width:30px; height:30px; font-size:12.5px;">' + ((acc.picture && /^https:\/\//i.test(acc.picture)) ? '<img src="' + safeEscapeHtml(acc.picture) + '" alt="" referrerpolicy="no-referrer" />' : safeEscapeHtml(ini)) + '</div>' +
               '<div style="min-width:0;">' +
                 '<div style="font-size:12.5px; font-weight:800; color:var(--sp-t1); overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">' + safeEscapeHtml(acc.name) + '</div>' +
                 '<div style="font-size:11px; color:var(--sp-t2); overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">' + safeEscapeHtml(acc.email) + '</div>' +
@@ -17908,7 +18267,7 @@ ${segLines || '(無逐字稿，請依上方現有摘要決議整理)'}`;
       '</div>' +
       '<div class="sp-acct-scroll">' +
         userProfileHtml +
-        '<div id="spGsiOfficialBtnHost" style="display:' + (cid ? 'flex' : 'none') + '; justify-content:center; min-height:42px;"></div>' +
+        '<div id="spGsiOfficialBtnHost" style="display:' + ((!isOAuthVerified && cid) ? 'flex' : 'none') + '; justify-content:center; min-height:42px;"></div>' +
         '<form id="spQuickGoogleForm" style="display:flex; flex-direction:column; gap:8px;" onsubmit="return false;">' +
           '<div style="display:flex; gap:8px; flex-wrap:wrap;">' +
             '<button type="button" class="sp-google-auto-btn" id="spPopupGoogleLoginBtn" style="flex:1.2;">' +
@@ -17922,7 +18281,7 @@ ${segLines || '(無逐字稿，請依上方現有摘要決議整理)'}`;
             '</button>' +
             '<button type="button" class="sp-act-btn" id="spOpenGoogleCalHubBtn" style="height:40px; padding:0 13px;">Google 日曆 / Meet</button>' +
           '</div>' +
-          '<details class="sp-oauth-details" id="spOAuthCidDetails"' + (cid ? '' : ' open') + '>' +
+          '<details class="sp-oauth-details" id="spOAuthCidDetails" style="display:' + (BUILTIN_GOOGLE_CLIENT_ID ? 'none' : 'block') + ';"' + (cid ? '' : ' open') + '>' +
             '<summary>' + (cid ? 'Google OAuth 2.0 進階憑證設定（已內建官方 Client ID ✓）' : '貼上 Google Cloud OAuth 2.0 Client ID（啟用官方登入視窗）') + '</summary>' +
             '<div style="display:flex; gap:6px; margin-top:8px;">' +
               '<input type="text" id="spClientIdInput" class="sp-acct-input" placeholder="貼上 xxx.apps.googleusercontent.com（公開識別碼，設定一次永久記憶）" value="' + safeEscapeHtml(cid) + '" style="font-family:Consolas,monospace; font-size:11.5px; flex:1;" />' +
@@ -19487,6 +19846,7 @@ ${segLines || '(無逐字稿，請依上方現有摘要決議整理)'}`;
     overlay._spBound = true;
 
     syncSpatialBrandLogo();
+    syncSpatialTopbarUserBadge();
 
     const recPill = document.getElementById('spLiveRecPill');
     if (recPill) recPill.addEventListener('click', function () { enterMeetingContent3D(0); });
@@ -21767,6 +22127,7 @@ ${segLines || '(無逐字稿，請依上方現有摘要決議整理)'}`;
             '<button type="button" id="spQuickVideoBtn" class="sp-top-btn"><span>螢幕錄影</span></button>' +
             '<button type="button" id="spOpenSettingsBtn" class="sp-top-btn"><span>系統設定</span></button>' +
             '<button type="button" id="spatialThemeToggleBtn" class="sp-top-btn sp-theme-btn"><span id="spatialThemeLabel">暗房深色</span></button>' +
+            '<div id="spTopUserWrap" class="sp-top-user-wrap"></div>' +
           '</div>' +
         '</header>' +
         '<aside id="spatialDepthRail">' +
@@ -22020,6 +22381,15 @@ ${segLines || '(無逐字稿，請依上方現有摘要決議整理)'}`;
           curWrap.classList.remove('is-open');
         });
       }
+    }
+
+    // 4. 平面雙欄模式右上角 (.top-actions) 同步掛載目前登入使用者身分膠囊 (#spFlatTopUserWrap)
+    if (topActions && !document.getElementById('spFlatTopUserWrap')) {
+      const flatUserWrap = document.createElement('div');
+      flatUserWrap.id = 'spFlatTopUserWrap';
+      flatUserWrap.className = 'sp-top-user-wrap';
+      topActions.appendChild(flatUserWrap);
+      syncSpatialTopbarUserBadge();
     }
 
     // 專案分類標籤檢查：若缺少 #sessionProjectTagInput 才補掛 #currentProjectTagBtn 保底按鈕
