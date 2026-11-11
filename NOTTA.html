@@ -6218,12 +6218,12 @@
             <option value="manual">固定手動講者</option>
           </select>
         </div>
-        <div class="pill-select" title="控制原音 AI 呼叫策略：預設「智慧省額度」在錄音中 0 API 消耗，結束時才自動分段精修，1 小時會議僅需極少額度">
+        <div class="pill-select" title="控制原音 AI 呼叫策略：預設「智慧省額度」支援 3 小時長會議每 10 分鐘自動封包（3 小時僅約 18 次 API，完美契合免費版額度）">
           <span>AI策略:</span>
           <select id="liveAiIntervalSelect" onchange="onLiveAiIntervalChange()">
-            <option value="smart_post" selected>智慧省額度(結束精修)</option>
-            <option value="interval_180">每3分鐘批次校正</option>
-            <option value="interval_60">每1分鐘批次校正</option>
+            <option value="smart_post" selected>智慧省額度(3小時約18次)</option>
+            <option value="interval_180">每3分鐘批次校正(3小時60次)</option>
+            <option value="interval_60">每1分鐘批次校正(短會議)</option>
             <option value="local_only">純本地0消耗</option>
           </select>
         </div>
@@ -7161,13 +7161,54 @@
       });
     }
 
+    // 3 小時長會議（180 分鐘）輕量純音訊側錄分塊快取：每 10 分鐘獨立封裝一段 ~2.4MB Opus 純音訊包，免解碼巨型視訊檔、零記憶體暴衝！
+    const MARATHON_CHUNK_SEC = 600;
+    const MARATHON_LIVE_FIRST_SLICE_SEC = 15;
+    const MARATHON_LIVE_BATCH_SLICE_SEC = 45;
+    const sessionPrebuiltAudioChunks = {};
+    let marathonSidecarState = null;
+    let activeSidecarStopPromise = null;
+    let liveFallbackSliceCount = 0;
+    let marathonThreeHourNoticeShown = false;
+
     function getMediaBlobFromDB(sessionId) {
       return new Promise((resolve) => {
         if (!db || !sessionId || !db.objectStoreNames.contains('meeting_media')) return resolve(null);
         try {
           const tx = db.transaction('meeting_media', 'readonly');
           const req = tx.objectStore('meeting_media').get(sessionId);
-          req.onsuccess = () => resolve(req.result?.mediaBlob || null);
+          req.onsuccess = () => {
+            const row = req.result;
+            if (row && Array.isArray(row.prebuiltAudioChunks) && row.prebuiltAudioChunks.length > 0) {
+              sessionPrebuiltAudioChunks[sessionId] = row.prebuiltAudioChunks;
+            }
+            resolve(row?.mediaBlob || null);
+          };
+          req.onerror = () => resolve(null);
+        } catch (e) {
+          resolve(null);
+        }
+      });
+    }
+
+    function getPrebuiltAudioChunksFromDB(sessionId) {
+      if (sessionId && Array.isArray(sessionPrebuiltAudioChunks[sessionId]) && sessionPrebuiltAudioChunks[sessionId].length > 0) {
+        return Promise.resolve(sessionPrebuiltAudioChunks[sessionId]);
+      }
+      return new Promise((resolve) => {
+        if (!db || !sessionId || !db.objectStoreNames.contains('meeting_media')) return resolve(null);
+        try {
+          const tx = db.transaction('meeting_media', 'readonly');
+          const req = tx.objectStore('meeting_media').get(sessionId);
+          req.onsuccess = () => {
+            const chunks = req.result?.prebuiltAudioChunks;
+            if (Array.isArray(chunks) && chunks.length > 0) {
+              sessionPrebuiltAudioChunks[sessionId] = chunks;
+              resolve(chunks);
+            } else {
+              resolve(null);
+            }
+          };
           req.onerror = () => resolve(null);
         } catch (e) {
           resolve(null);
@@ -7223,6 +7264,7 @@
       }
       tx.oncomplete = () => {
         sessions = [];
+        Object.keys(sessionPrebuiltAudioChunks).forEach(k => { delete sessionPrebuiltAudioChunks[k]; });
         lastSavedMediaBlobRef = null;
         lastSavedMediaSessionId = null;
         const gSearch = document.getElementById('globalHistorySearchInput');
@@ -7259,6 +7301,9 @@
           id: metaRecord.id,
           mediaBlob: blobCandidate,
           mediaType: metaRecord.mediaType || 'audio',
+          prebuiltAudioChunks: Array.isArray(sessionPrebuiltAudioChunks[metaRecord.id])
+            ? sessionPrebuiltAudioChunks[metaRecord.id]
+            : null,
           updatedAt: metaRecord.updatedAt || Date.now()
         });
         lastSavedMediaBlobRef = blobCandidate;
@@ -7302,6 +7347,9 @@
             id: sessionId,
             mediaBlob: existing.mediaBlob,
             mediaType: existing.mediaType || 'audio',
+            prebuiltAudioChunks: Array.isArray(sessionPrebuiltAudioChunks[sessionId])
+              ? sessionPrebuiltAudioChunks[sessionId]
+              : null,
             updatedAt: existing.updatedAt
           });
           existing.hasMedia = true;
@@ -8036,6 +8084,7 @@
         tx.objectStore('meeting_media').delete(id);
       }
       tx.oncomplete = () => {
+        delete sessionPrebuiltAudioChunks[id];
         sessions = sessions.filter(s => s.id !== id);
         if (id === currentSessionId) {
           createNewSession();
@@ -8488,11 +8537,156 @@
       mediaEl.addEventListener('loadedmetadata', onMeta, { once: true });
     }
 
+    let activeFinalTailFlushPromise = null;
+
+    function abortMarathonSidecarChunker() {
+      if (!marathonSidecarState) return;
+      const st = marathonSidecarState;
+      marathonSidecarState = null;
+      st.aborted = true;
+      if (st.rotateTimer) {
+        clearInterval(st.rotateTimer);
+        st.rotateTimer = null;
+      }
+      if (st.rec && st.rec.state !== 'inactive') {
+        st.rec.ondataavailable = null;
+        st.rec.onstop = null;
+        try { st.rec.stop(); } catch (e) {}
+      }
+      st.rec = null;
+    }
+
+    function startMarathonSidecarChunker(audioStream, sessionId) {
+      abortMarathonSidecarChunker();
+      if (!audioStream || !sessionId || typeof MediaRecorder === 'undefined') return;
+      if (!audioStream.getAudioTracks || audioStream.getAudioTracks().length === 0) return;
+
+      sessionPrebuiltAudioChunks[sessionId] = [];
+      const supportedMime = MediaRecorder.isTypeSupported('audio/webm;codecs=opus')
+        ? 'audio/webm;codecs=opus'
+        : 'audio/webm';
+
+      const state = {
+        sessionId,
+        stream: audioStream,
+        mime: supportedMime,
+        rec: null,
+        rotateTimer: null,
+        currentSegStats: null,
+        currentStopPromise: Promise.resolve(),
+        stopped: false,
+        aborted: false
+      };
+      marathonSidecarState = state;
+
+      const spawnSegment = () => {
+        if (state.stopped || state.aborted) return;
+        const segStartSec = Math.max(0, Math.floor((Date.now() - (recordingStartTime || Date.now())) / 1000));
+        const segStats = {
+          startSec: segStartSec,
+          totalFrames: 0,
+          activeFrames: 0,
+          maxPeak: 0
+        };
+        state.currentSegStats = segStats;
+
+        const parts = [];
+        let segRec = null;
+        try {
+          segRec = new MediaRecorder(audioStream, {
+            mimeType: supportedMime,
+            audioBitsPerSecond: 32000
+          });
+        } catch (err) {
+          segRec = new MediaRecorder(audioStream);
+        }
+
+        segRec.ondataavailable = ev => {
+          if (ev.data && ev.data.size > 0) parts.push(ev.data);
+        };
+
+        const stopProm = new Promise(resolve => {
+          segRec.onstop = () => {
+            if (!state.aborted && parts.length > 0) {
+              const chunkBlob = new Blob(parts, { type: 'audio/webm' });
+              if (chunkBlob.size >= 400) {
+                const rawEndSec = Math.floor((Date.now() - (recordingStartTime || Date.now())) / 1000);
+                const segEndSec = Math.max(segStats.startSec + 1, rawEndSec);
+                // 若背景分頁節流導致 ScriptProcessor 取樣不足 (<50 frames)，預設視為有效人聲段落，杜絕背景開會漏轉！
+                const measuredReliable = segStats.totalFrames >= 50;
+                const activeRatio = measuredReliable
+                  ? (segStats.activeFrames / Math.max(1, segStats.totalFrames))
+                  : 1;
+                const maxPeak = measuredReliable ? segStats.maxPeak : 0.05;
+
+                if (!Array.isArray(sessionPrebuiltAudioChunks[sessionId])) {
+                  sessionPrebuiltAudioChunks[sessionId] = [];
+                }
+                sessionPrebuiltAudioChunks[sessionId].push({
+                  wavBlob: chunkBlob,
+                  mimeType: 'audio/webm',
+                  activeRatio: Math.max(activeRatio, maxPeak > 0.0004 ? 0.02 : 0),
+                  maxPeak,
+                  startOffsetSec: segStats.startSec,
+                  endOffsetSec: segEndSec
+                });
+              }
+            }
+            resolve();
+          };
+        });
+
+        state.rec = segRec;
+        state.currentStopPromise = stopProm;
+        try {
+          segRec.start(1000);
+        } catch (e) {
+          console.warn('Marathon sidecar start warning:', e);
+        }
+      };
+
+      spawnSegment();
+
+      const chunkIntervalMs = (typeof window !== 'undefined' && Number(window.__NOVERA_MARATHON_CHUNK_MS) >= 500)
+        ? Number(window.__NOVERA_MARATHON_CHUNK_MS)
+        : (MARATHON_CHUNK_SEC * 1000);
+
+      state.rotateTimer = setInterval(() => {
+        if (state.stopped || state.aborted || !isRecording) return;
+        const prevRec = state.rec;
+        spawnSegment();
+        if (prevRec && prevRec.state !== 'inactive') {
+          try { prevRec.stop(); } catch (e) {}
+        }
+      }, chunkIntervalMs);
+    }
+
+    function stopMarathonSidecarChunker() {
+      if (!marathonSidecarState) {
+        activeSidecarStopPromise = Promise.resolve();
+        return activeSidecarStopPromise;
+      }
+      const st = marathonSidecarState;
+      marathonSidecarState = null;
+      st.stopped = true;
+      if (st.rotateTimer) {
+        clearInterval(st.rotateTimer);
+        st.rotateTimer = null;
+      }
+      const pendingStop = st.currentStopPromise || Promise.resolve();
+      if (st.rec && st.rec.state !== 'inactive') {
+        try { st.rec.stop(); } catch (e) {}
+      }
+      activeSidecarStopPromise = pendingStop;
+      return pendingStop;
+    }
+
     function cleanupDanglingMediaResources() {
       clearInterval(timerInterval);
       timerInterval = null;
       clearTimeout(interimWatchdogTimer);
       interimWatchdogTimer = null;
+      abortMarathonSidecarChunker();
       cleanupPcmCapturePipeline();
       if (animFrameId) {
         cancelAnimationFrame(animFrameId);
@@ -8718,28 +8912,44 @@
         recordedChunks = localChunks;
         currentMediaType = 'audio';
         const mime = MediaRecorder.isTypeSupported('audio/webm;codecs=opus') ? 'audio/webm;codecs=opus' : 'audio/webm';
-        mediaRecorder = new MediaRecorder(mixedAudioDest.stream, { mimeType: mime });
+        try {
+          mediaRecorder = new MediaRecorder(mixedAudioDest.stream, { mimeType: mime, audioBitsPerSecond: 32000 });
+        } catch (_) {
+          mediaRecorder = new MediaRecorder(mixedAudioDest.stream, { mimeType: mime });
+        }
 
         mediaRecorder.ondataavailable = e => {
           if (e.data && e.data.size > 0) localChunks.push(e.data);
         };
 
-        mediaRecorder.onstop = () => {
+        mediaRecorder.onstop = async () => {
           const finalBlob = new Blob(localChunks, { type: mime });
           const validBlob = finalBlob.size > 0 ? finalBlob : null;
           const aiStrategy = document.getElementById('liveAiIntervalSelect')?.value || 'smart_post';
+          try {
+            if (activeSidecarStopPromise) await activeSidecarStopPromise;
+            if (activeFinalTailFlushPromise) await activeFinalTailFlushPromise;
+          } catch (_) {}
           if (currentSessionId === lockedSessionId) {
             currentMediaBlob = validBlob;
             currentMediaType = 'audio';
             attachMediaBlobToPlayers(validBlob, 'audio');
             saveCurrentSessionToDB();
-            // 僅在 smart_post 模式下於結束時觸發全檔聽譯；定時批次模式已由 flushPcmSliceToGemini 分段處理，避免雙重精修競爭！
-            if (aiStrategy === 'smart_post' && (finalBlob.size > 1000 || transcriptSegments.length > 0)) {
-              setTimeout(() => {
-                if (currentSessionId === lockedSessionId) {
-                  runGeminiAudioTranscription(validBlob);
-                }
-              }, 350);
+            const hasUnrefinedDrafts = transcriptSegments.some(s => !s.aiRefined && !s.isManualNote);
+            const alreadyFullyLiveRefined = transcriptSegments.length > 0 && !hasUnrefinedDrafts;
+            if (aiStrategy === 'smart_post') {
+              if (alreadyFullyLiveRefined) {
+                const statusHint = document.getElementById('mediaStatusHint');
+                if (statusHint) statusHint.innerText = '已完成全場即時 AI 原音聽譯與聲紋分人。點擊段落可同步跳轉播放（亦可點「全檔原音重聽」重新精修）';
+                const syncBdg = document.getElementById('liveAiSyncBadge');
+                if (syncBdg && !isRecording) syncBdg.classList.remove('active');
+              } else if (finalBlob.size > 1000 || transcriptSegments.length > 0) {
+                setTimeout(() => {
+                  if (currentSessionId === lockedSessionId) {
+                    runGeminiAudioTranscription(validBlob);
+                  }
+                }, 250);
+              }
             }
           } else if (validBlob) {
             // 若使用者在停止瞬間已切換去別的會議（如 TEST1），僅更新原錄音場次（TEST2）的資料庫，絕不覆蓋當前畫面！
@@ -8752,6 +8962,7 @@
 
         mediaRecorder.start(1000);
         beginRecordingUI('audio');
+        startMarathonSidecarChunker(mixedAudioDest.stream, lockedSessionId);
         startWebSpeechLive();
         showToast('已開始錄音，請對麥克風說話');
       } catch (err) {
@@ -8883,27 +9094,48 @@
         const mime = MediaRecorder.isTypeSupported('video/webm;codecs=vp9,opus')
           ? 'video/webm;codecs=vp9,opus'
           : 'video/webm';
-        mediaRecorder = new MediaRecorder(combinedStream, { mimeType: mime });
+        try {
+          mediaRecorder = new MediaRecorder(combinedStream, {
+            mimeType: mime,
+            videoBitsPerSecond: 750000,
+            audioBitsPerSecond: 32000
+          });
+        } catch (_) {
+          mediaRecorder = new MediaRecorder(combinedStream, { mimeType: mime });
+        }
 
         mediaRecorder.ondataavailable = e => {
           if (e.data && e.data.size > 0) localChunks.push(e.data);
         };
 
-        mediaRecorder.onstop = () => {
+        mediaRecorder.onstop = async () => {
           const finalBlob = new Blob(localChunks, { type: mime });
           const validBlob = finalBlob.size > 0 ? finalBlob : null;
           const aiStrategy = document.getElementById('liveAiIntervalSelect')?.value || 'smart_post';
+          try {
+            if (activeSidecarStopPromise) await activeSidecarStopPromise;
+            if (activeFinalTailFlushPromise) await activeFinalTailFlushPromise;
+          } catch (_) {}
           if (currentSessionId === lockedSessionId) {
             currentMediaBlob = validBlob;
             currentMediaType = 'video';
             attachMediaBlobToPlayers(validBlob, 'video');
             saveCurrentSessionToDB();
-            if (aiStrategy === 'smart_post' && (finalBlob.size > 1000 || transcriptSegments.length > 0)) {
-              setTimeout(() => {
-                if (currentSessionId === lockedSessionId) {
-                  runGeminiAudioTranscription(validBlob);
-                }
-              }, 350);
+            const hasUnrefinedDrafts = transcriptSegments.some(s => !s.aiRefined && !s.isManualNote);
+            const alreadyFullyLiveRefined = transcriptSegments.length > 0 && !hasUnrefinedDrafts;
+            if (aiStrategy === 'smart_post') {
+              if (alreadyFullyLiveRefined) {
+                const statusHint = document.getElementById('mediaStatusHint');
+                if (statusHint) statusHint.innerText = '已完成全場即時 AI 原音聽譯與聲紋分人。點擊段落可同步跳轉視訊畫面（亦可點「全檔原音重聽」重新精修）';
+                const syncBdg = document.getElementById('liveAiSyncBadge');
+                if (syncBdg && !isRecording) syncBdg.classList.remove('active');
+              } else if (finalBlob.size > 1000 || transcriptSegments.length > 0) {
+                setTimeout(() => {
+                  if (currentSessionId === lockedSessionId) {
+                    runGeminiAudioTranscription(validBlob);
+                  }
+                }, 250);
+              }
             }
           } else if (validBlob) {
             updateSessionInDB(lockedSessionId, rec => {
@@ -8915,6 +9147,7 @@
 
         mediaRecorder.start(1000);
         beginRecordingUI('video');
+        startMarathonSidecarChunker(mixedAudioDest.stream, lockedSessionId);
         startWebSpeechLive();
         if (mode === 'screen') {
           // 錄影啟動 4 秒後自動掃描 Google Meet / 視訊畫面上的與會者名牌並加入講者清單
@@ -9064,8 +9297,10 @@
         return;
       }
 
-      // 每 3 秒智慧巡檢：若選擇定時批次模式 (60s/180s) 則按週期送出；若在預設智慧模式但瀏覽器 WebSpeech 未能上字（例如 file:// 本機協定或語音引擎受阻），只要累積滿 8 秒人聲即自動分段聽譯上字！
-      const targetSec = mode === 'interval_180' ? 180 : (mode === 'interval_60' ? 60 : 6);
+      // 專為 3 小時長會議與免費 API 15 RPM 設計的智慧巡檢：
+      // - 定時批次模式 (60s/180s) 依指定週期送出；
+      // - 預設 smart_post 模式下，若 WebSpeech 正常上字則全程 0 API 消耗；若錄製線上會議系統音／無內建字幕，第 1 段於 15 秒即時出字確認收音，後續改以每 45 秒批次補字（每分鐘僅 1.3 次、3 小時約 240 次，絕不撞免費額度上限）！
+      const targetSec = mode === 'interval_180' ? 180 : (mode === 'interval_60' ? 60 : MARATHON_LIVE_BATCH_SLICE_SEC);
       pcmSliceInterval = setInterval(() => {
         if (!isRecording || isFlushingLiveSlice) return;
         const curElapsedSec = Math.floor((Date.now() - recordingStartTime) / 1000);
@@ -9075,8 +9310,10 @@
             flushPcmSliceToGemini(false, true);
           }
         } else if (mode === 'smart_post') {
-          const webSpeechSilentTooLong = (Date.now() - lastWebSpeechResultAt > 4800) && !currentInterimText;
-          if (sliceDurSec >= 6 && pcmSliceSpeechFrames >= 1 && webSpeechSilentTooLong && Boolean(getEffectiveGeminiKey())) {
+          const webSpeechSilentTooLong = (Date.now() - lastWebSpeechResultAt > 5500) && !currentInterimText;
+          const adaptiveLiveSec = liveFallbackSliceCount === 0 ? MARATHON_LIVE_FIRST_SLICE_SEC : MARATHON_LIVE_BATCH_SLICE_SEC;
+          if (sliceDurSec >= adaptiveLiveSec && pcmSliceSpeechFrames >= 1 && webSpeechSilentTooLong && Boolean(getEffectiveGeminiKey())) {
+            liveFallbackSliceCount++;
             flushPcmSliceToGemini(false, true);
           }
         }
@@ -9099,12 +9336,22 @@
         if (!isRecording) return;
         const input = e.inputBuffer.getChannelData(0);
 
-        // 計算該 frame 的真實 RMS 能量（靈敏門檻 0.0018，完美捕捉一般筆電麥克風正常說話音量）
+        // 計算該 frame 的真實 RMS 能量與峰值，同步餵給 10 分鐘長會議純音訊側錄器統計有效人聲比例
         let sumSq = 0;
+        let framePeak = 0;
         for (let i = 0; i < input.length; i++) {
-          sumSq += input[i] * input[i];
+          const v = input[i];
+          sumSq += v * v;
+          const av = v < 0 ? -v : v;
+          if (av > framePeak) framePeak = av;
         }
         const rms = Math.sqrt(sumSq / input.length);
+        if (marathonSidecarState && marathonSidecarState.currentSegStats) {
+          const st = marathonSidecarState.currentSegStats;
+          st.totalFrames++;
+          if (rms > 0.0006) st.activeFrames++;
+          if (framePeak > st.maxPeak) st.maxPeak = framePeak;
+        }
         if (rms > 0.0006) {
           pcmSliceSpeechFrames++;
           // 即時計算說話者物理聲紋（基頻 F0 + 過零率 ZCR），完全本地運算 0 API 消耗
@@ -9116,7 +9363,7 @@
           }
         }
 
-        // 持續收集 12kHz 降採樣切片（上限保留最近 3 分鐘約 640 個區塊），支援錄音中隨時點擊「立即分段產出逐字稿」或自動即時聽譯
+        // 持續收集 12kHz 降採樣切片（上限保留最近約 3 分 10 秒 = 2,200 個區塊，記憶體僅 ~8.6MB），完整涵蓋 45s / 60s / 180s 各批次週期
         const mode = document.getElementById('liveAiIntervalSelect')?.value || 'smart_post';
         if (mode !== 'local_only') {
           const ratio = inputSampleRate / 12000;
@@ -9126,7 +9373,7 @@
             downsampled[i] = input[Math.floor(i * ratio)];
           }
           pcmSliceSamples.push(downsampled);
-          if (pcmSliceSamples.length > 680) {
+          if (pcmSliceSamples.length > 2200) {
             pcmSliceSamples.shift();
           }
         }
@@ -9402,6 +9649,7 @@ ${speakerRule}
               transcriptSegments.sort((a, b) => a.startSec - b.startSec);
               renderSpeakerPills();
               renderTranscript();
+              syncVideoStageSubtitleStrip();
               saveCurrentSessionToDB();
             } else {
               // 若使用者已切換去別的會議（如 TEST1），僅將此段逐字稿寫回原錄音場次（TEST2），絕不汙染當前畫面！
@@ -9492,10 +9740,10 @@ ${speakerRule}
       return new Blob([buffer], { type: 'audio/wav' });
     }
 
-    // 低記憶體峰值分段降採樣引擎：不再配置全檔 Float32Array，直接由原音軌逐段擷取 8 分鐘 12kHz WAV，大幅降低長影片 OOM 風險！
-    async function extractCleanWavChunksFromMediaBlob(mediaBlob, maxChunkSec = 480) {
-      if (mediaBlob && mediaBlob.size > 350 * 1024 * 1024) {
-        throw new Error('影音檔案超過 350MB 瀏覽器單次記憶體解碼安全上限，建議分段匯入或壓縮為音訊檔');
+    // 低記憶體峰值分段降採樣引擎（供外部匯入影音檔使用）：以每 10 分鐘（600 秒）10kHz WAV 分段擷取，3 小時會議僅需 18 段（單段約 11.4MB），安全上限提升至 650MB！
+    async function extractCleanWavChunksFromMediaBlob(mediaBlob, maxChunkSec = MARATHON_CHUNK_SEC) {
+      if (mediaBlob && mediaBlob.size > 650 * 1024 * 1024) {
+        throw new Error('外部匯入影音檔超過 650MB 瀏覽器單次記憶體解碼安全上限，建議壓縮為純音訊檔（.m4a / .mp3）後匯入');
       }
       const arrayBuf = await mediaBlob.arrayBuffer();
       const tempCtx = new (window.AudioContext || window.webkitAudioContext)();
@@ -9504,7 +9752,7 @@ ${speakerRule}
         const rawData = audioBuf.getChannelData(0);
         const rawLen = rawData.length;
         const inRate = audioBuf.sampleRate || 48000;
-        const targetRate = 12000; // 12kHz 完整涵蓋人聲基頻與共振峰 (80Hz~5500Hz)，體積較 16kHz 再省 25%
+        const targetRate = 10000; // 10kHz 完整涵蓋國台語人聲基頻與齒擦音共振峰 (80Hz~4800Hz)，10 分鐘單塊僅 11.4MB (Base64 ~15.2MB < 20MB 上限)
         const ratio = inRate / targetRate;
         const outLen = Math.floor(rawLen / ratio);
         const chunkSamples = maxChunkSec * targetRate;
@@ -9717,9 +9965,9 @@ ${speakerRule}
       const v = document.getElementById('liveAiIntervalSelect').value;
       reconfigureLiveAiTimer();
       const msgMap = {
-        smart_post: '已切換為「智慧省額度模式」：錄音中 0 API 消耗，按下結束時自動全檔分段精修（1小時會議最省額度）',
-        interval_180: '已切換為「每 3 分鐘批次校正」：錄音每滿 3 分鐘自動送出一次原音精修（1小時約 20 次 API）',
-        interval_60: '已切換為「每 1 分鐘批次校正」：適合短時間會議即時精修',
+        smart_post: '已切換為「智慧省額度模式」：支援 3 小時長會議每 10 分鐘自動封裝純音訊包，3 小時會後精修僅需約 18 次 API！',
+        interval_180: '已切換為「每 3 分鐘批次校正」：錄音每滿 3 分鐘自動送出一次原音精修（3 小時約 60 次 API）',
+        interval_60: '已切換為「每 1 分鐘批次校正」：適合 1 小時內短會議即時精修',
         local_only: '已切換為「純本地 0 消耗模式」：錄音全程不呼叫 API，僅在點擊「全檔原音重聽」或「生成會議紀錄」時才呼叫'
       };
       showToast(msgMap[v] || '已更新原音 AI 校正策略');
@@ -9733,6 +9981,9 @@ ${speakerRule}
       currentInterimText = '';
       lastWebSpeechResultAt = Date.now();
       webSpeechActiveOk = false;
+      liveFallbackSliceCount = 0;
+      marathonThreeHourNoticeShown = false;
+      activeFinalTailFlushPromise = null;
 
       document.getElementById('hwStatusDot').className = 'status-dot live';
       document.getElementById('liveInterimBar').style.display = 'flex';
@@ -9760,6 +10011,11 @@ ${speakerRule}
         document.getElementById('recTimer').innerText = formatSec(sec);
         const centerTimer = document.getElementById('liveCenterTimerBadge');
         if (centerTimer) centerTimer.innerText = formatSec(sec);
+        if (!marathonThreeHourNoticeShown && sec >= 10800) {
+          marathonThreeHourNoticeShown = true;
+          saveCurrentSessionToDB();
+          showToast('本場會議已連續錄製滿 3 小時（03:00:00），音訊分塊已安全保護，會議結束時請記得點擊停止錄製');
+        }
         if (typeof syncFloatingCapsuleUI === 'function') syncFloatingCapsuleUI();
       }, 500);
 
@@ -9780,8 +10036,21 @@ ${speakerRule}
       if (currentInterimText) {
         commitCurrentInterimNow();
       }
-      // 2. 將最後一段有聲 PCM 切片送交 Gemini 轉寫
-      flushPcmSliceToGemini(true);
+      // 2. 先收尾 10 分鐘長會議純音訊側錄分塊器（確保最後一段 <10 分鐘 Opus 純音訊包完整落袋）
+      stopMarathonSidecarChunker();
+
+      // 3. 智慧尾段處理：僅在「定時批次模式 (60s/180s)」或「smart_post 且全程已由即時 AI 切片聽譯、無未精修草稿」時補刷尾段，避免與會後 10 分鐘分塊精修重複呼叫 API！
+      const aiStrategyNow = document.getElementById('liveAiIntervalSelect')?.value || 'smart_post';
+      const hasUnrefinedDraftsNow = transcriptSegments.some(s => !s.aiRefined && !s.isManualNote);
+      if (aiStrategyNow === 'interval_180' || aiStrategyNow === 'interval_60') {
+        activeFinalTailFlushPromise = flushPcmSliceToGemini(true, false);
+      } else if (aiStrategyNow === 'smart_post' && liveFallbackSliceCount > 0 && transcriptSegments.length > 0 && !hasUnrefinedDraftsNow) {
+        activeFinalTailFlushPromise = flushPcmSliceToGemini(true, true);
+      } else {
+        activeFinalTailFlushPromise = null;
+        pcmSliceSamples = [];
+        pcmSliceSpeechFrames = 0;
+      }
       cleanupPcmCapturePipeline();
 
       if (recognition) {
@@ -10083,12 +10352,15 @@ ${speakerRule}
         .map(s => ({ ...s, matched: false }));
 
       try {
-        // 自動將音檔或長達 1~2 小時的影片解碼為 12kHz 單聲道 WAV，並以每 8 分鐘（480秒，約 6.9MB）自動切塊
+        // 優先使用錄製過程中每 10 分鐘自動側錄封裝之超輕量純音訊包（3 小時螢幕錄影 1GB+ 免解碼、0 記憶體暴衝、整場 3 小時僅 18 段）！
         let audioChunks = [];
-        try {
-          const extracted = await extractCleanWavChunksFromMediaBlob(blob, 480);
-          // 僅當全檔峰值低於 0.0001（完全數位零訊號）時才視為靜音，徹底解決筆電小聲收音被誤判為靜音而不呼叫 AI 的問題！
-          if ((extracted.maxPeak || 0) < 0.0001 && extracted.totalActiveRatio < 0.0001) {
+        const prebuilt = (blob === currentMediaBlob || !blob)
+          ? await getPrebuiltAudioChunksFromDB(targetSessionId)
+          : null;
+
+        if (Array.isArray(prebuilt) && prebuilt.length > 0) {
+          const allDigitalZero = prebuilt.every(c => (c.maxPeak || 0) < 0.0001 && (c.activeRatio || 0) < 0.0001);
+          if (allDigitalZero) {
             if (currentSessionId === targetSessionId && transcriptSegments.length > 0) {
               calibrateTranscriptSegmentsLocally();
               if (statusHint) statusHint.innerText = '已完成逐字稿自動校正。點擊任一段落即可同步跳轉播放原音或視訊畫面';
@@ -10099,20 +10371,37 @@ ${speakerRule}
             showToast('此檔案音軌為完全靜音，請確認麥克風收音裝置');
             return;
           }
-          audioChunks = extracted.chunks;
-        } catch (decodeErr) {
-          console.warn('Audio decode fallback to raw blob:', decodeErr);
-          if (blob && blob.size > 20 * 1024 * 1024) {
-            throw decodeErr;
+          audioChunks = prebuilt;
+        } else {
+          try {
+            const extracted = await extractCleanWavChunksFromMediaBlob(blob, MARATHON_CHUNK_SEC);
+            // 僅當全檔峰值低於 0.0001（完全數位零訊號）時才視為靜音，徹底解決筆電小聲收音被誤判為靜音而不呼叫 AI 的問題！
+            if ((extracted.maxPeak || 0) < 0.0001 && extracted.totalActiveRatio < 0.0001) {
+              if (currentSessionId === targetSessionId && transcriptSegments.length > 0) {
+                calibrateTranscriptSegmentsLocally();
+                if (statusHint) statusHint.innerText = '已完成逐字稿自動校正。點擊任一段落即可同步跳轉播放原音或視訊畫面';
+                showToast('已完成逐字稿自動校正');
+                return;
+              }
+              if (statusHint) statusHint.innerText = '此檔案音軌為完全數位靜音（請檢查麥克風是否被系統靜音）';
+              showToast('此檔案音軌為完全靜音，請確認麥克風收音裝置');
+              return;
+            }
+            audioChunks = extracted.chunks;
+          } catch (decodeErr) {
+            console.warn('Audio decode fallback to raw blob:', decodeErr);
+            if (blob && blob.size > 20 * 1024 * 1024) {
+              throw decodeErr;
+            }
+            audioChunks = [{
+              wavBlob: blob,
+              mimeType: (blob.type || 'audio/webm').split(';')[0],
+              activeRatio: 1,
+              maxPeak: 1,
+              startOffsetSec: 0,
+              endOffsetSec: 60
+            }];
           }
-          audioChunks = [{
-            wavBlob: blob,
-            mimeType: (blob.type || 'audio/webm').split(';')[0],
-            activeRatio: 1,
-            maxPeak: 1,
-            startOffsetSec: 0,
-            endOffsetSec: 60
-          }];
         }
 
         const customDict = (document.getElementById('customDictInput')?.value || '').trim();
@@ -10122,13 +10411,30 @@ ${speakerRule}
         const accumulatedSegments = [];
         let failedChunkCount = 0;
         let lastChunkError = null;
+        let lastChunkCallStartedAt = 0;
+        const minChunkPaceMs = (typeof window !== 'undefined' && typeof window.__NOVERA_CHUNK_PACE_MS === 'number')
+          ? Math.max(0, window.__NOVERA_CHUNK_PACE_MS)
+          : 4500; // 免費版 15 RPM 安全節流閥：每段至少間隔 4.5 秒（每分鐘最多約 13 次呼叫，絕不觸發 429 限流）
 
         for (let idx = 0; idx < audioChunks.length; idx++) {
           const chunk = audioChunks[idx];
           if (audioChunks.length > 1 && chunk.activeRatio < 0.0002 && (chunk.maxPeak || 0) < 0.0002) continue;
 
-          if (audioChunks.length > 1 && statusHint) {
-            statusHint.innerText = `正在進行長會議分段原音精修（第 ${idx + 1} / ${audioChunks.length} 段：${formatSec(chunk.startOffsetSec)} - ${formatSec(chunk.endOffsetSec)}）...`;
+          if (lastChunkCallStartedAt > 0 && audioChunks.length > 1 && minChunkPaceMs > 0) {
+            const elapsedSincePrev = Date.now() - lastChunkCallStartedAt;
+            if (elapsedSincePrev < minChunkPaceMs) {
+              await new Promise(r => setTimeout(r, minChunkPaceMs - elapsedSincePrev));
+            }
+          }
+          lastChunkCallStartedAt = Date.now();
+
+          if (audioChunks.length > 1) {
+            if (statusHint) {
+              statusHint.innerText = `正在進行長會議分段原音精修（第 ${idx + 1} / ${audioChunks.length} 段：${formatSec(chunk.startOffsetSec)} - ${formatSec(chunk.endOffsetSec)}）...`;
+            }
+            if (syncText) {
+              syncText.innerText = `長會議精修 (${idx + 1}/${audioChunks.length})...`;
+            }
           }
 
           // 單段獨立 try/catch 容錯：即使長會議第 4 段發生網路波動或截斷，前 3 段已完成之精修成果 100% 完整保留！
@@ -10235,6 +10541,26 @@ ${speakerRule}
             fallbackWindowDrafts.forEach(s => {
               accumulatedSegments.push(polishSegmentLocally(s, dictPairs));
             });
+          }
+
+          // 長會議逐段即時上字與增量存檔：3 小時（18 段）精修過程中每完成 1 段即刻更新畫面並寫入 IndexedDB，中途關閉分頁亦絕不遺失已完成進度！
+          if (audioChunks.length > 1 && idx < audioChunks.length - 1 && currentSessionId === targetSessionId && accumulatedSegments.length > 0) {
+            const processedUntilSec = chunk.endOffsetSec || 0;
+            const remainingDrafts = initialSegmentsSnapshot.filter(
+              s => !s.isManualNote && (s.startSec || 0) >= processedUntilSec
+            );
+            const progressiveMerged = [
+              ...accumulatedSegments,
+              ...remainingDrafts,
+              ...preservedManualNotes.map(mn => ({ ...mn }))
+            ].sort((a, b) => (a.startSec || 0) - (b.startSec || 0));
+            transcriptSegments = progressiveMerged;
+            transcriptSegments.forEach(s => {
+              if (s.speaker && !speakerList.includes(s.speaker)) speakerList.push(s.speaker);
+            });
+            renderSpeakerPills();
+            renderTranscript();
+            saveCurrentSessionToDB();
           }
         }
 
@@ -10387,14 +10713,14 @@ ${speakerRule}
     // ============================================================================
     // 8. 右欄：AI 結構化筆記生成 (含多模型容錯 + 本地智慧結構化保底) & Ask AI 會議問答
     // ============================================================================
-    // 針對 1~2 小時超長會議（例如 1,200 段逐字稿），自動保留所有標星號重點並均勻濃縮控制在 28,000 字元內，防止 Prompt 超載
-    function buildCompactDialogForPrompt(segs, maxChars = 28000) {
+    // 針對 3 小時超長會議（可達 2,500+ 段逐字稿），容量放寬至 110,000 字元（約 7.5 萬 Tokens，遠低於 Gemini 25 萬 TPM 上限），完整涵蓋第 1～3 小時不截斷！
+    function buildCompactDialogForPrompt(segs, maxChars = 110000) {
       const fullLines = segs.map(s => `[${formatSec(s.startSec)}] ${s.speaker}: ${s.text}`);
       const fullStr = fullLines.join('\n');
       if (fullStr.length <= maxChars) return fullStr;
 
       const step = Math.ceil(fullStr.length / maxChars);
-      const compacted = segs.filter((s, idx) => s.starred || idx % step === 0 || idx < 15 || idx >= segs.length - 15)
+      const compacted = segs.filter((s, idx) => s.starred || idx % step === 0 || idx < 25 || idx >= segs.length - 25)
         .map(s => `[${formatSec(s.startSec)}] ${s.speaker}${s.starred ? '(重點)' : ''}: ${s.text}`);
       return compacted.join('\n').slice(0, maxChars);
     }
@@ -10459,7 +10785,7 @@ ${speakerRule}
       document.getElementById('noteOverview').innerText = '正在根據左側逐字稿分析整理結構化會議紀錄...';
       const tpl = document.getElementById('summaryTemplateSelect').value;
       const customDict = (document.getElementById('customDictInput')?.value || '').trim();
-      const dialog = buildCompactDialogForPrompt(segsSnapshot, 28000);
+      const dialog = buildCompactDialogForPrompt(segsSnapshot, 110000);
 
       const tplPrompts = {
         standard: '請以「標準商務會議」格式整理核心討論重點、達成決議與後續待辦事項。',
@@ -10942,18 +11268,54 @@ ${dialog}
         }
 
         const segsSnapshot = transcriptSegments.map(s => ({ ...s }));
+        // 省略每行重複 2,000 次的 SessionID 與會議標題前綴，節省近 45% Token 空間，讓 3 小時完整逐字稿輕鬆全量送入！
         const numberedLines = segsSnapshot.map(s => {
           const secInt = Math.max(0, Math.floor(Number(s.startSec) || 0));
-          return `[${targetSessionId} | ${currentTitle} | ${secInt} | ${formatSec(secInt)} | ${s.speaker || '講者'}] ${s.text || ''}${s.note ? ' (' + s.note + ')' : ''}`;
+          return `[${secInt} | ${formatSec(secInt)} | ${s.speaker || '講者'}] ${s.text || ''}${s.note ? ' (' + s.note + ')' : ''}`;
         });
         let dialog = numberedLines.join('\n');
-        if (dialog.length > 28000) dialog = dialog.slice(0, 28000);
+        const MAX_QA_DIALOG_CHARS = 110000;
+        if (dialog.length > MAX_QA_DIALOG_CHARS) {
+          const qKws = extractQueryKeywords(q);
+          const scored = numberedLines.map((line, idx) => {
+            const low = line.toLowerCase();
+            let sc = segsSnapshot[idx]?.starred ? 8 : 0;
+            qKws.forEach(kw => {
+              if (low.includes(kw)) sc += kw.length >= 3 ? 6 : 2;
+            });
+            if (idx < 15 || idx >= numberedLines.length - 15) sc += 3;
+            return { idx, line, sc };
+          });
+          // 先優先保留關鍵字高分段落（不因位於第 3 小時末端而被截斷），再均勻補滿時間軸脈絡並依時間排序
+          scored.sort((a, b) => b.sc - a.sc || a.idx - b.idx);
+          const pickedIndices = new Set();
+          let budgetUsed = 0;
+          for (let i = 0; i < scored.length; i++) {
+            const item = scored[i];
+            if (item.sc <= 0) break;
+            if (budgetUsed + item.line.length + 1 > Math.floor(MAX_QA_DIALOG_CHARS * 0.7)) break;
+            pickedIndices.add(item.idx);
+            budgetUsed += item.line.length + 1;
+          }
+          const stride = Math.max(2, Math.ceil(dialog.length / Math.max(10000, MAX_QA_DIALOG_CHARS - budgetUsed)));
+          for (let idx = 0; idx < numberedLines.length; idx += stride) {
+            if (pickedIndices.has(idx)) continue;
+            const ln = numberedLines[idx];
+            if (budgetUsed + ln.length + 1 > MAX_QA_DIALOG_CHARS) break;
+            pickedIndices.add(idx);
+            budgetUsed += ln.length + 1;
+          }
+          dialog = Array.from(pickedIndices)
+            .sort((a, b) => a - b)
+            .map(idx => numberedLines[idx])
+            .join('\n');
+        }
 
-        const prompt = `請根據以下本場會議的真實逐字稿，使用純繁體中文精準回答使用者的問題（嚴禁使用簡體字與 Emoji 圖示；若逐字稿中未提及，請明確告知未提及）。
+        const prompt = `請根據以下本場會議（SessionID: ${targetSessionId}，會議名稱：${currentTitle}）的真實逐字稿，使用純繁體中文精準回答使用者的問題（嚴禁使用簡體字與 Emoji 圖示；若逐字稿中未提及，請明確告知未提及）。
 凡引用到具體發言內容、數據或決議時，請務必在句末附上精確溯源標記，嚴格格式為：
-[[REF:${targetSessionId}:秒數整數:${currentTitle} MM:SS]]
+[[REF:${targetSessionId}:秒數整數:${currentTitle} 時間碼]]
 
-逐字稿資料（格式：[SessionID | 會議名稱 | 秒數(整數) | 時間碼(MM:SS) | 講者] 內容）：
+逐字稿資料（每行格式：[秒數整數 | 時間碼 | 講者] 內容）：
 ${dialog}
 
 問題：「${q}」`;
@@ -11058,14 +11420,28 @@ ${retrieval.contextText}
       }
     }
 
-    // 多重模型自動容錯輪詢池：支援最新 Gemini 3.x 與舊版金鑰雙軌容錯，並具單通道逾時自動切換保護
+    // 免費版 15 RPM 滑動視窗保護池 ＋ 已退役 (404) 模型自動記憶池 ＋ 429 智慧冷卻重試
+    const retiredGeminiModels = new Set();
+    const recentGeminiCallTimestamps = [];
+
+    // 多重模型自動容錯輪詢池：支援最新 Gemini 3.x 與舊版金鑰雙軌容錯，並具 90 秒長音訊逾時與免費額度 15 RPM 保護
     async function callGeminiApi(preferredModel, parts) {
       const apiKey = getEffectiveGeminiKey();
       if (!apiKey) {
         throw new Error('尚未設定 Gemini API 金鑰（請點擊「設定 AI 金鑰」貼上您的個人金鑰，金鑰僅存於本機瀏覽器）');
       }
       const hasMedia = parts.some(p => p && p.inlineData);
-      const perAttemptTimeoutMs = hasMedia ? 28000 : 14000;
+      const perAttemptTimeoutMs = hasMedia ? 90000 : 22000;
+
+      // 免費版 15 RPM 硬上限保護：若過去 60 秒內已成功送出 >= 13 次呼叫，自動微幅等待最舊一筆滑出 60 秒視窗，避免撞上 HTTP 429
+      const nowTs = Date.now();
+      while (recentGeminiCallTimestamps.length > 0 && (nowTs - recentGeminiCallTimestamps[0]) > 61000) {
+        recentGeminiCallTimestamps.shift();
+      }
+      if (recentGeminiCallTimestamps.length >= 13) {
+        const waitRpmMs = Math.min(15000, Math.max(500, 61200 - (nowTs - recentGeminiCallTimestamps[0])));
+        await new Promise(r => setTimeout(r, waitRpmMs));
+      }
 
       const basePool = [
         'gemini-3.5-flash-lite',
@@ -11076,46 +11452,71 @@ ${retrieval.contextText}
         'gemini-2.5-flash-lite',
         'gemini-flash-latest'
       ];
-      const candidateModels = preferredModel && !basePool.includes(preferredModel)
+      const rawCandidates = preferredModel && !basePool.includes(preferredModel)
         ? [preferredModel, ...basePool]
         : basePool;
+      const activePool = rawCandidates.filter(m => !retiredGeminiModels.has(m));
+      const candidateModels = activePool.length > 0 ? activePool : rawCandidates;
 
       let lastError = null;
 
-      for (const model of candidateModels) {
-        const ctrl = typeof AbortController !== 'undefined' ? new AbortController() : null;
-        const timerId = ctrl ? setTimeout(() => { try { ctrl.abort(); } catch (_) {} }, perAttemptTimeoutMs) : null;
-        try {
-          const fetchOpts = {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              contents: [{ parts }],
-              generationConfig: {
-                temperature: 0.0,
-                maxOutputTokens: 8192
+      for (let round = 0; round < 2; round++) {
+        let sawRateLimit429 = false;
+        const roundModels = round === 0 ? candidateModels : candidateModels.filter(m => !retiredGeminiModels.has(m));
+        for (const model of roundModels) {
+          const ctrl = typeof AbortController !== 'undefined' ? new AbortController() : null;
+          const timerId = ctrl ? setTimeout(() => { try { ctrl.abort(); } catch (_) {} }, perAttemptTimeoutMs) : null;
+          try {
+            const fetchOpts = {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                contents: [{ parts }],
+                generationConfig: {
+                  temperature: 0.0,
+                  maxOutputTokens: 8192
+                }
+              })
+            };
+            if (ctrl) fetchOpts.signal = ctrl.signal;
+            const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`, fetchOpts);
+            if (timerId) clearTimeout(timerId);
+            if (res.ok) {
+              apiCallCount++;
+              recentGeminiCallTimestamps.push(Date.now());
+              refreshApiKeyStatusBadge();
+              const data = await res.json();
+              const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
+              if (text) return text;
+            } else {
+              const errBody = await res.text();
+              if (res.status === 404) {
+                retiredGeminiModels.add(model);
+              } else if (res.status === 429) {
+                sawRateLimit429 = true;
               }
-            })
-          };
-          if (ctrl) fetchOpts.signal = ctrl.signal;
-          const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`, fetchOpts);
-          if (timerId) clearTimeout(timerId);
-          if (res.ok) {
-            apiCallCount++;
-            refreshApiKeyStatusBadge();
-            const data = await res.json();
-            const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
-            if (text) return text;
-          } else {
-            const errBody = await res.text();
-            lastError = new Error(`HTTP ${res.status}: ${errBody.slice(0, 120)}`);
+              lastError = new Error(`HTTP ${res.status}: ${errBody.slice(0, 120)}`);
+            }
+          } catch (e) {
+            if (timerId) clearTimeout(timerId);
+            lastError = e && e.name === 'AbortError'
+              ? new Error(`模型 ${model} 回應逾時，已自動切換備援通道`)
+              : e;
           }
-        } catch (e) {
-          if (timerId) clearTimeout(timerId);
-          lastError = e && e.name === 'AbortError'
-            ? new Error(`模型 ${model} 回應逾時，已自動切換備援通道`)
-            : e;
         }
+        // 若全部可用通道皆回傳 429（免費額度每分鐘次數暫滿），自動冷卻等待一次後重試！
+        if (round === 0 && sawRateLimit429) {
+          const cooldownMs = (typeof window !== 'undefined' && typeof window.__NOVERA_429_COOLDOWN_MS === 'number')
+            ? Math.max(100, window.__NOVERA_429_COOLDOWN_MS)
+            : 12000;
+          const statusHint = document.getElementById('mediaStatusHint');
+          if (statusHint && isTranscribingAudio) {
+            statusHint.innerText = '免費 API 每分鐘呼叫次數達上限，正在自動冷卻 12 秒後接續轉寫...';
+          }
+          await new Promise(r => setTimeout(r, cooldownMs));
+          continue;
+        }
+        break;
       }
       throw lastError || new Error('API 無法連線');
     }
@@ -14715,8 +15116,11 @@ ${segLines || '(無逐字稿，請依上方現有摘要決議整理)'}`;
         mediaSilenceDecodedOk = false;
         return [];
       }
-      // 超大型原始視訊檔自動交由第二軌時間軸空隙保底，避免佔用過高解碼記憶體
-      if (blob.size > 180 * 1024 * 1024) {
+      // 3 小時長會議防記憶體暴衝保護：超過 20MB 之高壓縮純音訊（>75 分鐘 Opus 解碼後逾 1GB PCM）或超過 120MB 之視訊檔，自動交由零記憶體消耗的「第二軌時間軸空隙保底」處理！
+      const mimeLower = String(blob.type || '').toLowerCase();
+      const isCompressedAudio = mimeLower.startsWith('audio/') && !mimeLower.includes('wav');
+      const safeDecodeLimitBytes = isCompressedAudio ? (20 * 1024 * 1024) : (120 * 1024 * 1024);
+      if (blob.size > safeDecodeLimitBytes) {
         mediaSilenceIntervals = [];
         mediaSilenceDecodedOk = false;
         return [];
