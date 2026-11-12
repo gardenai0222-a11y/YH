@@ -7439,6 +7439,11 @@
     document.addEventListener('visibilitychange', () => {
       if (document.visibilityState === 'visible' && isRecording && !isRecordingPaused) {
         acquireScreenWakeLock();
+      } else if (document.visibilityState === 'hidden' && isRecording) {
+        try {
+          if (mediaRecorder && mediaRecorder.state === 'recording') mediaRecorder.requestData();
+        } catch (_) {}
+        setTimeout(() => { if (isRecording) flushRecordingWalToDB(); }, 60);
       }
     });
 
@@ -7495,16 +7500,20 @@
     };
 
     function flushRecordingWalToDB(sessionId, mediaType, mimeType, chunkArrayRef) {
+      const effSessionId = sessionId || activeRecordingSessionId || currentSessionId;
+      const effMediaType = mediaType || currentMediaType || 'audio';
+      const effMimeType = mimeType || (mediaRecorder && mediaRecorder.mimeType) || (effMediaType === 'video' ? 'video/webm' : 'audio/webm');
+      const effChunks = Array.isArray(chunkArrayRef) ? chunkArrayRef : recordedChunks;
       return new Promise((resolve) => {
-        if (!db || !sessionId || !db.objectStoreNames.contains('recording_wal')) return resolve(false);
+        if (!db || !effSessionId || !db.objectStoreNames.contains('recording_wal')) return resolve(false);
         try {
           const walRecord = {
-            sessionId,
+            sessionId: effSessionId,
             title: (document.getElementById('meetingTitle')?.value || committedSessionTitle || '未命名會議紀錄').trim(),
             projectTag: (document.getElementById('sessionProjectTagInput')?.value || currentProjectTag || '').trim(),
-            mediaType: mediaType || currentMediaType || 'audio',
-            mimeType: mimeType || (mediaType === 'video' ? 'video/webm' : 'audio/webm'),
-            chunkBlobs: Array.isArray(chunkArrayRef) ? chunkArrayRef.slice() : [],
+            mediaType: effMediaType,
+            mimeType: effMimeType,
+            chunkBlobs: Array.isArray(effChunks) ? effChunks.slice() : [],
             transcriptSegments: Array.isArray(transcriptSegments) ? transcriptSegments.map(s => ({ ...s })) : [],
             speakerList: Array.isArray(speakerList) ? [...speakerList] : ['講者 A', '講者 B'],
             overview: document.getElementById('noteOverview')?.innerText || '',
@@ -9567,15 +9576,42 @@
       st.rec = null;
     }
 
+    function pickSupportedRecorderMime(kind = 'audio') {
+      if (typeof MediaRecorder === 'undefined' || typeof MediaRecorder.isTypeSupported !== 'function') return '';
+      const candidates = kind === 'video'
+        ? ['video/webm;codecs=vp9,opus', 'video/webm;codecs=vp8,opus', 'video/webm', 'video/mp4']
+        : ['audio/webm;codecs=opus', 'audio/webm', 'audio/mp4', 'audio/ogg;codecs=opus'];
+      for (const c of candidates) {
+        try {
+          if (MediaRecorder.isTypeSupported(c)) return c;
+        } catch (_) {}
+      }
+      return '';
+    }
+
+    function bindMicTrackDisconnectFailover(stream) {
+      if (!stream || !stream.getAudioTracks) return;
+      const track = stream.getAudioTracks()[0];
+      if (!track || track._nottaDisconnectBound) return;
+      track._nottaDisconnectBound = true;
+      track.addEventListener('ended', () => {
+        if (!isRecording || stream !== micStream) return;
+        showToast('警告：外接／藍牙麥克風連線中斷，系統正自動無縫切換至內建預設麥克風繼續收音...');
+        setTimeout(() => {
+          if (isRecording && stream === micStream) {
+            onMicDeviceChange('');
+          }
+        }, 120);
+      });
+    }
+
     function startMarathonSidecarChunker(audioStream, sessionId) {
       abortMarathonSidecarChunker();
       if (!audioStream || !sessionId || typeof MediaRecorder === 'undefined') return;
       if (!audioStream.getAudioTracks || audioStream.getAudioTracks().length === 0) return;
 
       sessionPrebuiltAudioChunks[sessionId] = [];
-      const supportedMime = MediaRecorder.isTypeSupported('audio/webm;codecs=opus')
-        ? 'audio/webm;codecs=opus'
-        : 'audio/webm';
+      const supportedMime = pickSupportedRecorderMime('audio') || 'audio/webm';
 
       const state = {
         sessionId,
@@ -9834,6 +9870,7 @@
           micStream.getAudioTracks().forEach(t => { try { t.stop(); } catch (e) {} });
         }
         micStream = freshMic;
+        bindMicTrackDisconnectFailover(micStream);
         const trk = micStream.getAudioTracks()[0];
         activeMicLabel = (trk && trk.label) ? trk.label : '已選取麥克風';
         if (activeMicSourceNode) {
@@ -9898,6 +9935,7 @@
         const lockedSessionId = currentSessionId;
         activeRecordingSessionId = lockedSessionId;
         micStream = acquiredMic;
+        bindMicTrackDisconnectFailover(micStream);
         const micTrack = micStream.getAudioTracks()[0];
         activeMicLabel = (micTrack && micTrack.label) ? micTrack.label : '預設麥克風';
 
@@ -9925,12 +9963,17 @@
         const localChunks = [];
         recordedChunks = localChunks;
         currentMediaType = 'audio';
-        const mime = MediaRecorder.isTypeSupported('audio/webm;codecs=opus') ? 'audio/webm;codecs=opus' : 'audio/webm';
+        const pickedAudioMime = pickSupportedRecorderMime('audio');
         try {
-          mediaRecorder = new MediaRecorder(mixedAudioDest.stream, { mimeType: mime, audioBitsPerSecond: 32000 });
+          mediaRecorder = pickedAudioMime
+            ? new MediaRecorder(mixedAudioDest.stream, { mimeType: pickedAudioMime, audioBitsPerSecond: 32000 })
+            : new MediaRecorder(mixedAudioDest.stream, { audioBitsPerSecond: 32000 });
         } catch (_) {
-          mediaRecorder = new MediaRecorder(mixedAudioDest.stream, { mimeType: mime });
+          mediaRecorder = pickedAudioMime
+            ? new MediaRecorder(mixedAudioDest.stream, { mimeType: pickedAudioMime })
+            : new MediaRecorder(mixedAudioDest.stream);
         }
+        const mime = mediaRecorder.mimeType || pickedAudioMime || 'audio/mp4';
 
         mediaRecorder.ondataavailable = e => {
           if (e.data && e.data.size > 0) localChunks.push(e.data);
@@ -10044,6 +10087,7 @@
         const lockedSessionId = currentSessionId;
         activeRecordingSessionId = lockedSessionId;
         micStream = acquiredMic;
+        if (micStream) bindMicTrackDisconnectFailover(micStream);
         displayStream = acquiredDisplay;
         const vMicTrack = micStream && micStream.getAudioTracks()[0];
         activeMicLabel = (vMicTrack && vMicTrack.label) ? vMicTrack.label : (micStream ? '預設麥克風' : '');
@@ -10108,18 +10152,21 @@
         const localChunks = [];
         recordedChunks = localChunks;
         currentMediaType = 'video';
-        const mime = MediaRecorder.isTypeSupported('video/webm;codecs=vp9,opus')
-          ? 'video/webm;codecs=vp9,opus'
-          : 'video/webm';
+        const pickedVideoMime = pickSupportedRecorderMime('video');
         try {
-          mediaRecorder = new MediaRecorder(combinedStream, {
-            mimeType: mime,
-            videoBitsPerSecond: 750000,
-            audioBitsPerSecond: 32000
-          });
+          mediaRecorder = pickedVideoMime
+            ? new MediaRecorder(combinedStream, {
+                mimeType: pickedVideoMime,
+                videoBitsPerSecond: 750000,
+                audioBitsPerSecond: 32000
+              })
+            : new MediaRecorder(combinedStream, { videoBitsPerSecond: 750000, audioBitsPerSecond: 32000 });
         } catch (_) {
-          mediaRecorder = new MediaRecorder(combinedStream, { mimeType: mime });
+          mediaRecorder = pickedVideoMime
+            ? new MediaRecorder(combinedStream, { mimeType: pickedVideoMime })
+            : new MediaRecorder(combinedStream);
         }
+        const mime = mediaRecorder.mimeType || pickedVideoMime || 'video/mp4';
 
         mediaRecorder.ondataavailable = e => {
           if (e.data && e.data.size > 0) localChunks.push(e.data);
@@ -12145,6 +12192,54 @@ ${speakerRule}
       return buildLocalSmartMeetingNotesForSegments(transcriptSegments);
     }
 
+    function normalizeAiSummaryField(val, kind, fallbackStr) {
+      if (val === null || val === undefined) return fallbackStr;
+      if (typeof val === 'string') {
+        const trimmed = val.trim();
+        return trimmed || fallbackStr;
+      }
+      if (Array.isArray(val)) {
+        const lines = val.map(item => {
+          if (item === null || item === undefined) return '';
+          if (typeof item === 'string') {
+            const s = item.trim();
+            if (!s) return '';
+            return /^[•\-*\d\[]/.test(s) ? s : `• ${s}`;
+          }
+          if (typeof item === 'object') {
+            if (kind === 'todos') {
+              const owner = String(item.owner || item.assignee || item.unit || item.responsible || '').trim();
+              const task = String(item.task || item.action || item.content || item.item || item.title || item.description || '').trim();
+              const due = String(item.due || item.dueDate || item.deadline || item.date || '').trim();
+              const timeRef = String(item.time || item.timeRef || item.timestamp || '').trim();
+              const prefix = item.done === true ? '[x] ' : '• ';
+              const ownerPart = owner ? `權責單位：${owner}｜` : '';
+              const duePart = due ? `（預計完成期限：${due}）` : '';
+              const timePart = timeRef ? ` [${timeRef.replace(/^\[|\]$/g, '')}]` : '';
+              const body = `${ownerPart}${task}${duePart}${timePart}`.trim();
+              return body ? `${prefix}${body}` : '';
+            }
+            const label = String(item.title || item.category || item.topic || item.owner || '').trim();
+            const text = String(item.content || item.decision || item.summary || item.description || item.task || '').trim();
+            if (label && text) return `• ${label}：${text}`;
+            const joined = Object.values(item).filter(v => typeof v === 'string' || typeof v === 'number').join('｜').trim();
+            return joined ? `• ${joined}` : '';
+          }
+          return `• ${String(item)}`;
+        }).filter(Boolean);
+        return lines.length > 0 ? lines.join('\n') : fallbackStr;
+      }
+      if (typeof val === 'object') {
+        const entries = Object.entries(val).map(([k, v]) => {
+          const inner = normalizeAiSummaryField(v, kind, '');
+          if (!inner) return '';
+          return inner.includes('\n') ? `【${k}】\n${inner}` : `• ${k}：${inner.replace(/^•\s*/, '')}`;
+        }).filter(Boolean);
+        return entries.length > 0 ? entries.join('\n') : fallbackStr;
+      }
+      return String(val).trim() || fallbackStr;
+    }
+
     async function generateAiMeetingNotes() {
       if (isGeneratingNotes) {
         showToast('結構化會議紀錄正在整理中，請稍候...');
@@ -12191,9 +12286,9 @@ ${dialog}
         const raw = await callGeminiApi(PRIMARY_MODEL, [{ text: prompt }], { jsonMode: true });
         const parsed = safeParseJsonFromAi(raw, 'object');
         if (currentSessionId === targetSessionId) {
-          document.getElementById('noteOverview').innerText = parsed.overview || '無摘要';
-          document.getElementById('noteDecisions').innerText = parsed.decisions || '無特定決議';
-          document.getElementById('noteTodos').innerText = parsed.todos || '無特定待辦事項';
+          document.getElementById('noteOverview').innerText = normalizeAiSummaryField(parsed.overview, 'overview', '無摘要');
+          document.getElementById('noteDecisions').innerText = normalizeAiSummaryField(parsed.decisions, 'decisions', '無特定決議');
+          document.getElementById('noteTodos').innerText = normalizeAiSummaryField(parsed.todos, 'todos', '無特定待辦事項');
           saveCurrentSessionToDB();
           showToast('結構化會議紀錄已生成完成');
         }
@@ -17377,7 +17472,7 @@ ${segLines || '(無逐字稿，請依上方現有摘要決議整理)'}`;
 
           // 提取負責人員／單位
           let owner = '';
-          const explicitLabelOwner = working.match(/(?:負責人|負責人員|負責單位|承辦人|承辦單位|權責單位|指派給?)[：:\s]*([\u4e00-\u9fa5A-Za-z0-9_・.-]{2,16})/);
+          const explicitLabelOwner = working.match(/(?:負責人|負責人員|負責單位|承辦人|承辦單位|權責單位|指派給?)[：:\s]*([\u4e00-\u9fa5A-Za-z0-9_・./／()（）-]{2,24})/);
           if (explicitLabelOwner) {
             owner = explicitLabelOwner[1].trim();
           }
