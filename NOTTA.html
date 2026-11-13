@@ -6442,11 +6442,15 @@
             <option value="ja-JP">日本語</option>
           </select>
         </div>
-        <div class="pill-select" title="自動透過聲紋頻譜與 AI 原音辨識區分不同說話者（自動新增講者 A / B / C / D...）">
+        <div class="pill-select" title="選擇現場實際開會人數上限：若已知現場為 3 人或 4 人，直接鎖定人數可 100% 杜絕長會議因坐姿遠近變化而多拆出幽靈講者！">
           <span>講者:</span>
-          <select id="diarizationSelect" aria-label="講者聲紋辨識模式">
-            <option value="auto" selected>自動聲紋分人</option>
-            <option value="manual">固定手動講者</option>
+          <select id="diarizationSelect" aria-label="講者聲紋辨識模式與人數上限">
+            <option value="auto" selected>自動分人(智慧收斂)</option>
+            <option value="cap_2">鎖定 2 人對話</option>
+            <option value="cap_3">鎖定 3 人開會</option>
+            <option value="cap_4">鎖定 4 人開會</option>
+            <option value="cap_5">鎖定 5 人開會</option>
+            <option value="manual">單人固定講者</option>
           </select>
         </div>
         <div class="pill-select" title="控制原音 AI 呼叫策略：預設「智慧省額度」平時 0 消耗、結束自動以 16kHz 高清 WAV 原音精修（純台語優先模式下支援說話停頓省額度自動批次聽譯）">
@@ -7541,11 +7545,25 @@
       return `講者 P${registry.length + 1}`;
     }
 
-    // 跨切片／跨分段多語者聲紋對齊引擎：支援單次全檔盤點 1 對 1 完整保留 2~8 位講者（含多位同性別講者），並阻擋男女混標！
-    function resolveMultiSpeakerIdentity(rawSpeaker, voiceTrait, acoustics, registry, sliceState) {
+    function getMaxSpeakersCapFromMode(diarMode, initialChunkCount) {
+      const m = String(diarMode || 'auto').match(/^cap_(\d+)$/);
+      if (m) return Math.max(1, parseInt(m[1], 10));
+      if (diarMode === 'manual') return 1;
+      // 自動模式長會議智慧收斂：避免 1 小時會議中同一個人坐遠、低頭或疲累就被無限拆出講者 E/F/G/H
+      if (typeof initialChunkCount === 'number' && initialChunkCount >= 2) {
+        return Math.min(5, Math.max(4, initialChunkCount + 1));
+      }
+      return 5;
+    }
+
+    // 跨切片／跨分段多語者聲紋對齊引擎：支援嚴格人數上限鎖定（如 3 人開會絕不拆出第 4~8 人），消除遠近音量變化造成的幽靈講者暴增！
+    function resolveMultiSpeakerIdentity(rawSpeaker, voiceTrait, acoustics, registry, sliceState, opts = {}) {
       const normLabel = normalizeRawSpeakerLabel(rawSpeaker);
       const sig = parseVoiceTraitSignature(voiceTrait, acoustics);
       const sliceKey = `${normLabel}|${sig.gender}|${sig.register}`;
+      const maxCap = (opts && Number(opts.maxSpeakersCap) >= 1) ? Number(opts.maxSpeakersCap) : 6;
+      const isSubsequentChunk = Boolean(opts && opts.isSubsequentChunk);
+      const capReached = registry.length >= maxCap;
 
       if (sliceState && sliceState.rawLabelToSpeaker.has(normLabel)) {
         const boundSp = sliceState.rawLabelToSpeaker.get(normLabel);
@@ -7597,44 +7615,57 @@
 
       for (let i = 0; i < registry.length; i++) {
         const entry = registry[i];
-        if (claimedByOtherLabelInSlice.has(entry.speakerName)) continue;
+        if (!capReached && claimedByOtherLabelInSlice.has(entry.speakerName)) continue;
 
-        // 硬性性別隔離牆：男聲絕不可配對女聲，女聲絕不可配對男聲！
+        // 硬性性別隔離牆（除非人數已達硬上限且全場無同性別名額，否則絕不男女混標）
         if (sig.gender !== 'U' && entry.gender !== 'U' && sig.gender !== entry.gender) continue;
 
-        // 物理基頻隔離牆：若雙方皆有清晰基頻且差距超過 32Hz（例如低沉男聲 105Hz vs 中高男聲 148Hz，或中頻女聲 195Hz vs 清亮女聲 245Hz），視為不同講者
         const bothHavePitch = (acoustics && acoustics.voicedCount >= 3 && acoustics.medianPitchHz > 0 && entry.pitchHz > 0);
         const pitchDiff = bothHavePitch ? Math.abs(acoustics.medianPitchHz - entry.pitchHz) : 0;
-        if (bothHavePitch && pitchDiff > 32) continue;
+        const maxAllowedPitchDiff = capReached ? 95 : (isSubsequentChunk ? 48 : 32);
+        if (bothHavePitch && pitchDiff > maxAllowedPitchDiff) continue;
 
-        // 音域特徵隔離牆：防止新切片將「中頻女聲」與「清亮女聲」或「中頻男聲」與「中低男聲」壓縮成同一人
         const rA = VOICE_REGISTER_RANK[sig.register] || 0;
         const rB = VOICE_REGISTER_RANK[entry.register] || 0;
-        if (rA > 0 && rB > 0) {
+        if (!capReached && rA > 0 && rB > 0) {
           const rankDiff = Math.abs(rA - rB);
-          if (rankDiff >= 2) continue;
-          if (rankDiff === 1 && !isExplicitNamedMatch(entry) && !(bothHavePitch && pitchDiff <= 14)) continue;
+          // 後續長分段（idx > 0）同一人坐遠常從「中頻男聲」變成「遠距低沉男聲」(rankDiff=2)，放寬跨段配對避免無故拆出講者 E/F/G/H！
+          if (isSubsequentChunk) {
+            if (rankDiff >= 3 && !isExplicitNamedMatch(entry)) continue;
+          } else {
+            if (rankDiff >= 2) continue;
+            if (rankDiff === 1 && !isExplicitNamedMatch(entry) && !(bothHavePitch && pitchDiff <= 14)) continue;
+          }
         }
 
         let score = 0;
         if (isExplicitNamedMatch(entry)) score += 45;
         if (sig.gender !== 'U' && sig.gender === entry.gender) score += 25;
         if (rA > 0 && rB > 0) {
-          if (rA === rB) score += 22;
-          else if (Math.abs(rA - rB) === 1) score += 6;
+          const rd = Math.abs(rA - rB);
+          if (rd === 0) score += 22;
+          else if (rd === 1) score += 10;
+          else if (rd === 2 && isSubsequentChunk) score += 3;
         }
         if (bothHavePitch) {
-          score += Math.max(0, 24 - pitchDiff * 0.8);
+          score += Math.max(0, 24 - pitchDiff * 0.65);
         }
-        if (sig.distance === entry.distance) score += 4;
+        if (sig.distance === entry.distance) score += 3;
+        if (claimedByOtherLabelInSlice.has(entry.speakerName)) score -= 18;
 
-        // 若模型只回傳泛稱（講者 A/B）且當前片段與既有講者皆無性別與音高資訊，不強行合併不同代號
-        if (score <= 4 && !isExplicitNamedMatch(entry)) continue;
+        if (!capReached && score <= 4 && !isExplicitNamedMatch(entry)) continue;
 
         if (score > bestScore) {
           bestScore = score;
           bestEntry = entry;
         }
+      }
+
+      // 若已達人數上限（例如鎖定 3 人開會）但因性別未標出而沒命中，強制歸入既有最接近之講者，絕不拆出第 4~8 人！
+      if (!bestEntry && capReached && registry.length > 0) {
+        bestEntry = registry.find(r => r.speakerName === normLabel)
+          || registry.find(r => sig.gender === 'U' || r.gender === 'U' || r.gender === sig.gender)
+          || registry[registry.length - 1];
       }
 
       let chosenSpeaker = '';
@@ -7647,10 +7678,10 @@
         if (!bestEntry.traitText && sig.traitText) bestEntry.traitText = sig.traitText;
         if (acoustics && acoustics.voicedCount >= 3 && acoustics.medianPitchHz > 0) {
           bestEntry.pitchHz = bestEntry.pitchHz > 0
-            ? (bestEntry.pitchHz * 0.72 + acoustics.medianPitchHz * 0.28)
+            ? (bestEntry.pitchHz * 0.75 + acoustics.medianPitchHz * 0.25)
             : acoustics.medianPitchHz;
         }
-        chosenTrait = sig.traitText || bestEntry.traitText || '';
+        chosenTrait = bestEntry.traitText || sig.traitText || '';
       } else {
         chosenSpeaker = allocateNextSpeakerInRegistry(registry, claimedByOtherLabelInSlice, normLabel);
         registry.push({
@@ -8252,7 +8283,10 @@
     }
 
     // 長會議高保真純音訊側錄分塊快取：每 5 分鐘（300 秒）封裝一段 96kbps 高清純音訊包，會後逐段解碼為 16kHz 無損 WAV（單段 ~9.1MB < 20MB 上限），兼顧台語高精準辨識與零記憶體暴衝！
-    const MARATHON_CHUNK_SEC = 360; // 6 分鐘單次全觀音訊視窗（16kHz 單聲道 WAV 約 11MB < 20MB 上限），讓最新模型一次聽完所有講者聲音精準分人！
+    const MARATHON_CHUNK_SEC = 120; // 長會議高速 2 分鐘分段（~3.8MB WAV，單段 10~18 秒完成不逾時）；4 分鐘內短錄音則自動以 240 秒單次全觀完成！
+    const SHORT_SINGLE_PASS_MAX_SEC = 240;
+    let activeTranscriptionAbortCtrl = null;
+    let transcriptionCancelRequested = false;
     const MARATHON_LIVE_FIRST_SLICE_SEC = 9;
     const MARATHON_LIVE_BATCH_SLICE_SEC = 13;
     const TAIWANESE_LIVE_SLICE_MIN_SEC = 9;
@@ -12022,7 +12056,8 @@
      ※ 絕對禁止將純國語句子複製貼上成「[台語原音] ...」！
      ※ 絕對禁止把說話者明明講國語的「他、不用、家裡、說、都」擅自逆向改寫成台語漢字「伊、毋免、厝裡、講、攏」！
   2. 【真實台語或國台語穿插句子】：唯有當說話者在音訊中「確實以台語音韻（七聲八調、鼻化韻、入聲或明確台語詞彙）」發音時，"spokenLang" 才填 "taiwanese" 或 "mixed"，並在 "text" 寫通順的台灣標準中文白話文意譯（勿殘留毋知、會使、這馬、佇咧、啥物、明仔載等台語字），同時在 "note" 標註「[台語原音] 實際聽到的台語原話」。
-- 常見台語詞彙聽辨參考（僅在音訊確實出現台語發音時採用）：聽無(聽不懂，非聽不到)、看無(看不懂)、毋知影(不知道)、按怎(怎麼)、按呢(這樣)、敢會使/會使無(可以嗎)、袂赴(來不及)、這馬(現在)、拄仔(剛才)、明仔載(明天)、歹勢(不好意思)、無要緊(沒關係)、規氣(乾脆)、家己(自己)、攏總(全部)、拍損(浪費)。`;
+- 常見台語與工程實務詞彙聽辨參考（嚴禁寫成毫無邏輯的國語同音亂碼字！）：估價(koo-kè，勿誤寫高檢)、出工/出料(tshut-kang/tshut-liāu，勿誤寫出港/出拉)、角落(kak-lo̍h，勿誤寫卡落)、眉角(mê-kak)、大家講講(kóng-kóng，勿誤寫開幹公公)、愛開外濟(要花多少錢，勿誤寫愛開哇幾)、袂使(不行，勿誤寫袂賽)、真累(tsin luī，勿誤寫真壘)、聽無(聽不懂)、毋知影(不知道)、按怎(怎麼)、按呢(這樣)、敢會使(可以嗎)、袂赴(來不及)、這馬(現在)、拄仔(剛才)、明仔載(明天)。
+- 【防亂碼鐵律】：若遠距收音某幾秒真的嚴重悶糊聽不清楚，請標註「（部分收音模糊）」或僅轉寫聽得清楚的字句，絕對禁止硬湊語意不通的同音亂碼詞！`;
     }
 
     async function flushPcmSliceToGemini(isFinalFlush, forceFlush = false) {
@@ -13366,14 +13401,36 @@ ${speakerRule}
       ids.forEach(id => {
         const el = document.getElementById(id);
         if (!el) return;
-        el.disabled = Boolean(running);
-        el.innerText = running ? '↻ AI 分析影音中...' : '↻ AI 重新分析影音';
+        // 執行中保持按鈕可點擊，直接變身為「✕ 停止分析」緊急煞車鈕，絕不鎖死讓使用者乾等！
+        el.disabled = false;
+        if (running) {
+          el.innerText = '✕ 停止分析（保留已完成）';
+          el.style.background = '#FDF0ED';
+          el.style.color = '#B42318';
+          el.style.borderColor = '#F3B6AD';
+        } else {
+          el.innerText = '↻ AI 重新分析影音';
+          el.style.background = 'var(--amber-soft)';
+          el.style.color = 'var(--amber)';
+          el.style.borderColor = '#E8D5B5';
+        }
       });
     }
 
+    function cancelAudioTranscription() {
+      if (!isTranscribingAudio) return false;
+      transcriptionCancelRequested = true;
+      if (activeTranscriptionAbortCtrl) {
+        try { activeTranscriptionAbortCtrl.abort(); } catch (_) {}
+      }
+      showToast('已發送停止指令：正在中止雲端分析並保留目前已完成的逐字稿段落...');
+      return true;
+    }
+    window.cancelAudioTranscription = cancelAudioTranscription;
+
     async function runGeminiNativeAudioRetranslate() {
       if (isTranscribingAudio) {
-        showToast('AI 影音分析已在執行中，請稍候...');
+        cancelAudioTranscription();
         return;
       }
       if (!getEffectiveGeminiKey()) {
@@ -13475,15 +13532,18 @@ ${speakerRule}
         return;
       }
       isTranscribingAudio = true;
+      transcriptionCancelRequested = false;
+      activeTranscriptionAbortCtrl = typeof AbortController !== 'undefined' ? new AbortController() : null;
       syncReanalyzeButtonsUI(true);
 
       const targetSessionId = currentSessionId;
       const statusHint = document.getElementById('mediaStatusHint');
       const syncBadge = document.getElementById('liveAiSyncBadge');
       const syncText = document.getElementById('liveAiSyncText');
+      let currentProgressStageLabel = '正在準備音軌';
       if (syncBadge) syncBadge.classList.add('active');
-      if (syncText) syncText.innerText = '正在執行會後原音校正與聲紋分人...';
-      if (statusHint) statusHint.innerText = '正在提取 16kHz 清晰人聲 WAV 音軌並進行 AI 台語聽譯與多講者聲紋分離...';
+      if (syncText) syncText.innerText = '正在準備音軌 (點擊「✕ 停止分析」可隨時中止)...';
+      if (statusHint) statusHint.innerText = '正在提取 16kHz 清晰人聲 WAV 音軌並準備 AI 聽譯...';
       renderTranscript();
 
       // 完整保存使用者在過程中手動釘選的畫面截圖、星號、手動補充速記與手動修訂過的文字/講者！
@@ -13504,8 +13564,12 @@ ${speakerRule}
       transcribeTicker = setInterval(() => {
         if (!isTranscribingAudio) return;
         const secWait = Math.max(1, Math.floor((Date.now() - transcribeStartedAt) / 1000));
+        const mm = Math.floor(secWait / 60);
+        const ss = String(secWait % 60).padStart(2, '0');
+        const elapsedStr = mm > 0 ? `${mm}分${ss}秒` : `${secWait}s`;
         if (syncText && !String(syncText.innerText || '').includes('冷卻')) {
-          syncText.innerText = `正在執行原音聽譯與聲紋分人 (${secWait}s)...`;
+          const mdlTag = lastSuccessfulGeminiModel ? ` · ${lastSuccessfulGeminiModel}` : '';
+          syncText.innerText = `${currentProgressStageLabel}${mdlTag} (${elapsedStr})`;
         }
       }, 1000);
 
@@ -13535,16 +13599,20 @@ ${speakerRule}
             showToast('此檔案音軌為完全靜音，請確認麥克風收音裝置');
             return;
           }
+          const estTotalPrebuiltSec = Math.max(
+            currentSessionDurationSec || 0,
+            (prebuilt[prebuilt.length - 1]?.endOffsetSec || 0) - (prebuilt[0]?.startOffsetSec || 0)
+          );
           const effectiveChunkSec = (options && Number(options.maxChunkSec) > 10)
             ? Number(options.maxChunkSec)
-            : MARATHON_CHUNK_SEC;
+            : (estTotalPrebuiltSec > 0 && estTotalPrebuiltSec <= SHORT_SINGLE_PASS_MAX_SEC ? SHORT_SINGLE_PASS_MAX_SEC : MARATHON_CHUNK_SEC);
           if (options && options.forceFreshDecode && Object.keys(manualSpeakerRenameMap || {}).length === 0) {
             speakerList = ['講者 A', '講者 B'];
             currentSpeaker = '講者 A';
           }
-          // 若舊場次在 IndexedDB 被舊版切成多塊 60 秒碎片（如 03:48 被切成 4 塊），重分析時自動無縫拼回單一完整音軌，讓最新模型一次聽完全場分人！
+          // 僅對 <= 4 分鐘 (240s) 之短錄音將舊 60s 碎片無縫拼回單一音軌一次聽完；超過 4 分鐘之長會議保持 120s 高速分段，杜絕大記憶體與 API 逾時卡死！
           let unifiedPrebuiltInput = prebuilt;
-          if (options && options.forceFreshDecode && prebuilt.length > 1 && prebuilt.every(c => c && c.wavBlob)) {
+          if (options && options.forceFreshDecode && estTotalPrebuiltSec <= SHORT_SINGLE_PASS_MAX_SEC && prebuilt.length > 1 && prebuilt.every(c => c && c.wavBlob)) {
             const decodedParts = [];
             let stitchSr = 16000;
             let totalStitchLen = 0;
@@ -13619,7 +13687,7 @@ ${speakerRule}
         } else {
           const effectiveChunkSec2 = (options && Number(options.maxChunkSec) > 10)
             ? Number(options.maxChunkSec)
-            : MARATHON_CHUNK_SEC;
+            : ((currentSessionDurationSec > 0 && currentSessionDurationSec <= SHORT_SINGLE_PASS_MAX_SEC) ? SHORT_SINGLE_PASS_MAX_SEC : MARATHON_CHUNK_SEC);
           if (options && options.forceFreshDecode && Object.keys(manualSpeakerRenameMap || {}).length === 0) {
             speakerList = ['講者 A', '講者 B'];
             currentSpeaker = '講者 A';
@@ -13671,7 +13739,9 @@ ${speakerRule}
           ? Math.max(0, window.__NOVERA_CHUNK_PACE_MS)
           : 6000; // 免費版 gemini-2.5-flash 10 RPM 安全節流閥：每段間隔 6 秒（每分鐘最多 10 次，確保全程命中高精準主力模型不降級！）
 
+        let initialDetectedSpeakerCount = 0;
         for (let idx = 0; idx < audioChunks.length; idx++) {
+          if (transcriptionCancelRequested) break;
           const chunk = audioChunks[idx];
           if (audioChunks.length > 1 && chunk.activeRatio < 0.0002 && (chunk.maxPeak || 0) < 0.0002) continue;
 
@@ -13681,14 +13751,18 @@ ${speakerRule}
               await new Promise(r => setTimeout(r, minChunkPaceMs - elapsedSincePrev));
             }
           }
+          if (transcriptionCancelRequested) break;
           lastChunkCallStartedAt = Date.now();
 
+          currentProgressStageLabel = audioChunks.length > 1
+            ? `分段 ${idx + 1}/${audioChunks.length}`
+            : `全場原音分人`;
           if (audioChunks.length > 1) {
             if (statusHint) {
-              statusHint.innerText = `正在進行多人原音精修與聲紋分離（第 ${idx + 1} / ${audioChunks.length} 段：${formatSec(chunk.startOffsetSec)} - ${formatSec(chunk.endOffsetSec)}）...`;
+              statusHint.innerText = `正在分析第 ${idx + 1} / ${audioChunks.length} 段（${formatSec(chunk.startOffsetSec)} - ${formatSec(chunk.endOffsetSec)}）· 點擊「✕ 停止分析」可隨時中止並保留目前成果`;
             }
             if (syncText) {
-              syncText.innerText = `原音精修 (${idx + 1}/${audioChunks.length})...`;
+              syncText.innerText = `${currentProgressStageLabel}...`;
             }
           }
 
@@ -13713,11 +13787,14 @@ ${speakerRule}
               }
             }
 
+            const maxSpeakersCap = getMaxSpeakersCapFromMode(diarMode, initialDetectedSpeakerCount);
+            const explicitCapMatch = String(diarMode || '').match(/^cap_(\d+)$/);
+            const explicitSpeakerCapNum = explicitCapMatch ? parseInt(explicitCapMatch[1], 10) : 0;
             const base64Audio = await blobToBase64(wavReadyBlob);
             const nextRegLetter = String.fromCharCode(65 + Math.min(25, Math.max(1, chunkSpeakerRegistry.length)));
-            const priorSpeakerHint = (diarMode === 'auto' && idx > 0 && chunkSpeakerRegistry.length > 0)
-              ? `\n【前段已註冊之講者聲紋名冊（共 ${chunkSpeakerRegistry.length} 人）】：${chunkSpeakerRegistry.map(r => `${r.speakerName}(${r.traitText || (r.gender === 'F' ? '女聲' : (r.gender === 'M' ? '男聲' : '未知音色'))}${r.pitchHz > 0 ? ', 約' + Math.round(r.pitchHz) + 'Hz' : ''})`).join('、')}。\n- 注意：同一性別常有多位不同講者（例如 2~3 位不同男聲、2~3 位不同女聲）！唯有確定是「同一人的嗓音」才沿用舊代號；只要音色厚薄、基頻高低、語速節奏或麥克風遠近不同，即使同為男聲或同為女聲，也必須立即新增「講者 ${nextRegLetter}」並依序遞增代號！`
-              : '';
+            const priorSpeakerHint = (diarMode !== 'manual' && idx > 0 && chunkSpeakerRegistry.length > 0)
+              ? `\n【本場已出場之講者固定名冊（目前共 ${chunkSpeakerRegistry.length} 人，本場上限最多 ${maxSpeakersCap} 人）】：${chunkSpeakerRegistry.map(r => `${r.speakerName}(${r.traitText || (r.gender === 'F' ? '女聲' : (r.gender === 'M' ? '男聲' : '未知音色'))})`).join('、')}。\n- 【防幽靈講者鐵律】：會議中途同一位講者常因坐姿後靠、轉頭、疲累或離麥克風較遠而聽起來較小聲低沉（例如從「中頻男聲」變成「遠距低沉男聲」），這絕對仍是名冊中的同一人，請優先歸入既有講者名冊，嚴禁隨便新增講者 E / F / G / H！${chunkSpeakerRegistry.length >= maxSpeakersCap ? `目前已達本場人數上限 (${maxSpeakersCap} 人)，禁止再新增任何新講者代號！` : `唯有 100% 確定出現從未開口過的全新嗓音且未超過 ${maxSpeakersCap} 人上限時，才可使用「講者 ${nextRegLetter}」。`}`
+              : (explicitSpeakerCapNum > 0 ? `\n【使用者已明確設定本場開會人數為 ${explicitSpeakerCapNum} 人】：全場最多只能使用 ${Array.from({ length: explicitSpeakerCapNum }, (_, k) => '講者 ' + String.fromCharCode(65 + k)).join('、')}（共 ${explicitSpeakerCapNum} 位），嚴禁超過 ${explicitSpeakerCapNum} 位講者！` : '');
             const prevTailSegs = idx > 0 ? accumulatedSegments.slice(-2) : [];
             const prevTailHint = prevTailSegs.length > 0
               ? `\n【跨分段語境銜接參考（本段開頭前 6 秒與上一段結尾重疊，請勿重複輸出已出現之重疊句）】：\n` +
@@ -13768,14 +13845,16 @@ ${diarizationPromptBlock}
             reqParts.push({ text: prompt });
             reqParts.push({ inlineData: { mimeType: targetMime, data: base64Audio } });
 
+            const isMultiChunkLongMeeting = audioChunks.length > 1;
             const textResp = await callGeminiApi(null, reqParts, {
               jsonMode: true,
               responseSchema: TRANSCRIPT_DIARIZATION_OBJECT_SCHEMA,
-              thinkingBudget: 4096,
-              deepDiarization: true,
-              maxOutputTokens: 32768,
-              temperature: 0.15,
-              highAccuracyAudio: true
+              thinkingBudget: isMultiChunkLongMeeting ? 1024 : 2048,
+              deepDiarization: !isMultiChunkLongMeeting,
+              maxOutputTokens: 16384,
+              temperature: 0.1,
+              highAccuracyAudio: true,
+              abortSignal: activeTranscriptionAbortCtrl ? activeTranscriptionAbortCtrl.signal : undefined
             });
 
             const parsedBundle = parseDiarizedTranscriptPayload(textResp);
@@ -13793,8 +13872,10 @@ ${diarizationPromptBlock}
               const chunkSliceState = { labelKeyToSpeaker: new Map(), rawLabelToSpeaker: new Map() };
 
               if (diarMode !== 'manual' && idx === 0 && Array.isArray(parsedBundle.detectedSpeakers) && parsedBundle.detectedSpeakers.length > 0) {
-                parsedBundle.detectedSpeakers.forEach(ds => {
+                initialDetectedSpeakerCount = Math.min(maxSpeakersCap, parsedBundle.detectedSpeakers.length);
+                parsedBundle.detectedSpeakers.slice(0, maxSpeakersCap).forEach(ds => {
                   if (!ds || !ds.speaker) return;
+                  if (chunkSpeakerRegistry.length >= maxSpeakersCap) return;
                   const normDs = normalizeRawSpeakerLabel(ds.speaker);
                   if (chunkSliceState.rawLabelToSpeaker.has(normDs)) return;
                   const gStr = String(ds.gender || '').toLowerCase();
@@ -13828,7 +13909,8 @@ ${diarizationPromptBlock}
                     vt,
                     acoustics,
                     chunkSpeakerRegistry,
-                    chunkSliceState
+                    chunkSliceState,
+                    { maxSpeakersCap, isSubsequentChunk: idx > 0 }
                   );
                   const mappedBase = resolvedIdentity.speakerName;
                   sp = manualSpeakerRenameMap[mappedBase] || manualSpeakerRenameMap[item.speaker] || mappedBase;
@@ -13902,6 +13984,23 @@ ${diarizationPromptBlock}
               });
             }
           } catch (chunkErr) {
+            if (transcriptionCancelRequested || (chunkErr && chunkErr.isUserCancelled)) {
+              const restDrafts = initialSegmentsSnapshot.filter(
+                s => !s.isManualNote && (s.startSec || 0) >= (chunk.startOffsetSec || 0)
+              );
+              restDrafts.forEach(s => accumulatedSegments.push({ ...s }));
+              break;
+            }
+            if (chunkErr && chunkErr.isDailyQuotaExhausted) {
+              lastChunkError = chunkErr;
+              failedChunkCount = audioChunks.length - idx;
+              const restDrafts = initialSegmentsSnapshot.filter(
+                s => !s.isManualNote && (s.startSec || 0) >= (chunk.startOffsetSec || 0)
+              );
+              restDrafts.forEach(s => accumulatedSegments.push(polishSegmentLocally(s, dictPairs, Boolean(s.aiRefined))));
+              showToast('免費版 API 今日額度已用罄，已自動停止後續排隊並保留目前完成段落');
+              break;
+            }
             failedChunkCount++;
             lastChunkError = chunkErr;
             console.warn(`Chunk ${idx + 1}/${audioChunks.length} cloud refinement failed, preserving unrefined drafts for window:`, chunkErr);
@@ -13998,12 +14097,19 @@ ${diarizationPromptBlock}
           renderTranscript();
           saveCurrentSessionToDB();
           const modelUsedLabel = lastSuccessfulGeminiModel || 'Gemini AI';
-          if (statusHint) {
-            statusHint.innerText = failedChunkCount > 0
-              ? `已完成分段精修 [${modelUsedLabel}]（${audioChunks.length - failedChunkCount}/${audioChunks.length} 段雲端精修，共 ${freshSpeakers.length} 位講者）`
-              : `已完成原音精修 [${modelUsedLabel}]：共辨識出 ${freshSpeakers.length} 位講者、${transcriptSegments.length} 段對話（點擊講者標籤可改名）`;
+          if (transcriptionCancelRequested) {
+            if (statusHint) {
+              statusHint.innerText = `已手動停止分析 [${modelUsedLabel}]：已完整保留已完成之 ${transcriptSegments.length} 段對話（共 ${freshSpeakers.length} 位講者）`;
+            }
+            showToast(`已停止 AI 分析，並保留目前完成的 ${transcriptSegments.length} 段逐字稿`);
+          } else {
+            if (statusHint) {
+              statusHint.innerText = failedChunkCount > 0
+                ? `已完成部分精修 [${modelUsedLabel}]（${Math.max(0, audioChunks.length - failedChunkCount)}/${audioChunks.length} 段成功，共 ${freshSpeakers.length} 位講者）`
+                : `已完成原音精修 [${modelUsedLabel}]：共辨識出 ${freshSpeakers.length} 位講者、${transcriptSegments.length} 段對話（點擊講者標籤可改名）`;
+            }
+            showToast(`✓ 已由 ${modelUsedLabel} 完成聽譯（辨識出 ${freshSpeakers.length} 位講者、共 ${transcriptSegments.length} 段對話）`);
           }
-          showToast(`✓ 已由 ${modelUsedLabel} 完成聽譯（辨識出 ${freshSpeakers.length} 位講者、共 ${transcriptSegments.length} 段對話）`);
         } else {
           updateSessionInDB(targetSessionId, rec => {
             rec.transcriptSegments = accumulatedSegments;
@@ -14021,6 +14127,7 @@ ${diarizationPromptBlock}
         }
       } finally {
         if (transcribeTicker) clearInterval(transcribeTicker);
+        activeTranscriptionAbortCtrl = null;
         isTranscribingAudio = false;
         syncReanalyzeButtonsUI(false);
         if (syncBadge && !isRecording) syncBadge.classList.remove('active');
@@ -14965,7 +15072,7 @@ ${retrieval.contextText}
           if (!res || !res.ok) return discoveredGeminiModels;
           const data = await res.json();
           const list = Array.isArray(data?.models) ? data.models : [];
-          const excludedPattern = /(tts|imagen|image|embedding|aqa|veo|lyria|robotics|computer-use|learnlm|gemma|bison|vision|-live|transcribe|native-audio|audio-preview|thinking-exp)/i;
+          const excludedPattern = /(tts|imagen|image|embedding|aqa|veo|lyria|robotics|computer-use|learnlm|gemma|bison|vision|-live|transcribe|native-audio|audio-preview|thinking-exp|-exp|experimental|preview-0)/i;
           const validIds = [];
           for (const item of list) {
             const rawName = String(item?.name || '').replace(/^models\//, '').trim();
@@ -15017,8 +15124,13 @@ ${retrieval.contextText}
       }
       const opts = (options && typeof options === 'object') ? options : {};
       const useStream = typeof opts.onStreamChunk === 'function';
+      if (opts.abortSignal && opts.abortSignal.aborted) {
+        const cancelErr = new Error('使用者已停止分析');
+        cancelErr.isUserCancelled = true;
+        throw cancelErr;
+      }
       const hasMedia = parts.some(p => p && p.inlineData);
-      const perAttemptTimeoutMs = opts.highAccuracyAudio ? 120000 : (hasMedia ? 45000 : 28000);
+      const perAttemptTimeoutMs = opts.highAccuracyAudio ? 52000 : (hasMedia ? 38000 : 28000);
 
       if (opts.highAccuracyAudio) {
         await discoverAvailableGeminiModels(apiKey);
@@ -15046,24 +15158,22 @@ ${retrieval.contextText}
         });
         const discLite = discoveredGeminiModels.filter(m => parseModelGenerationScore(m).isLite);
 
-        const staticFullFlash = ['gemini-3.8-flash', 'gemini-3.6-flash', 'gemini-2.5-flash', 'gemini-flash-latest'];
-        const staticPro = ['gemini-2.5-pro'];
-        const staticLite = ['gemini-3.5-flash-lite', 'gemini-2.5-flash-lite'];
-
-        const fullFlashOrder = discFullFlash.length > 0 ? [...discFullFlash, ...staticFullFlash] : ['gemini-2.5-flash', 'gemini-flash-latest'];
-        const proOrder = discPro.length > 0 ? [...discPro, ...staticPro] : staticPro;
-        const liteOrder = discLite.length > 0 ? [...discLite, ...staticLite] : ['gemini-2.5-flash-lite'];
+        // 嚴格精簡高精準候選模型池（最多 2~3 個穩定主力模型），徹底杜絕排隊輪詢十幾個預覽模型卡死 2 小時，且絕不偷降級到會亂湊同音字的 flash-lite！
+        const topDiscFlash = discFullFlash.filter(m => !/preview/i.test(m)).slice(0, 1);
+        const fullFlashOrder = [...topDiscFlash, 'gemini-2.5-flash'];
+        const proOrder = [...discPro.filter(m => !/preview/i.test(m)).slice(0, 1), 'gemini-2.5-pro'];
 
         if (pref === 'pro_first') {
-          rawCandidates = [...proOrder, ...fullFlashOrder, ...liteOrder];
+          rawCandidates = [...proOrder.slice(0, 1), ...fullFlashOrder];
         } else if (pref && pref !== 'auto_best') {
-          rawCandidates = [pref, ...fullFlashOrder, ...proOrder, ...liteOrder];
+          rawCandidates = [pref, 'gemini-2.5-flash'];
         } else {
-          rawCandidates = [...fullFlashOrder, ...proOrder, ...liteOrder];
+          rawCandidates = [...fullFlashOrder, 'gemini-2.5-pro'];
         }
         if (preferredModel) {
           rawCandidates = [preferredModel, ...rawCandidates];
         }
+        rawCandidates = rawCandidates.slice(0, 3);
       } else {
         const basePool = [
           'gemini-2.5-flash',
@@ -15099,16 +15209,31 @@ ${retrieval.contextText}
       const nonLiteCandidates = candidateModels.filter(m => !parseModelGenerationScore(m).isLite);
       const liteCandidates = candidateModels.filter(m => parseModelGenerationScore(m).isLite);
 
+      let sawDailyExhausted = false;
       for (let round = 0; round < 2; round++) {
+        if (opts.abortSignal && opts.abortSignal.aborted) {
+          const cancelErr = new Error('使用者已停止分析');
+          cancelErr.isUserCancelled = true;
+          throw cancelErr;
+        }
         let sawRateLimit429 = false;
         const roundModels = (opts.highAccuracyAudio && nonLiteCandidates.length > 0)
-          ? (round === 0
-              ? nonLiteCandidates.filter(m => !retiredGeminiModels.has(m))
-              : [...nonLiteCandidates.filter(m => !retiredGeminiModels.has(m)), ...liteCandidates.filter(m => !retiredGeminiModels.has(m))])
+          ? nonLiteCandidates.filter(m => !retiredGeminiModels.has(m)).slice(0, 2)
           : (round === 0 ? candidateModels : candidateModels.filter(m => !retiredGeminiModels.has(m)));
 
+        if (roundModels.length === 0) break;
+
         for (const model of roundModels) {
+          if (opts.abortSignal && opts.abortSignal.aborted) {
+            const cancelErr = new Error('使用者已停止分析');
+            cancelErr.isUserCancelled = true;
+            throw cancelErr;
+          }
           const ctrl = typeof AbortController !== 'undefined' ? new AbortController() : null;
+          const onParentAbort = () => { try { if (ctrl) ctrl.abort(); } catch (_) {} };
+          if (opts.abortSignal && ctrl) {
+            opts.abortSignal.addEventListener('abort', onParentAbort, { once: true });
+          }
           const timerId = ctrl ? setTimeout(() => { try { ctrl.abort(); } catch (_) {} }, perAttemptTimeoutMs) : null;
           try {
             const modelGenConfig = { ...genConfig };
@@ -15163,6 +15288,7 @@ ${retrieval.contextText}
               });
             }
             if (timerId) clearTimeout(timerId);
+            if (opts.abortSignal) { try { opts.abortSignal.removeEventListener('abort', onParentAbort); } catch (_) {} }
             if (res.ok) {
               apiCallCount++;
               lastSuccessfulGeminiModel = model;
@@ -15221,21 +15347,39 @@ ${retrieval.contextText}
               }
             } else {
               const errBody = await res.text();
-              if (res.status === 404) {
+              if (res.status === 404 || res.status === 403) {
                 retiredGeminiModels.add(model);
               } else if (res.status === 429) {
-                sawRateLimit429 = true;
+                // 若為「每日免費額度用罄 (PerDay)」或「該模型免費額度為 0 (limit: 0)」，立即將該模型標記停用，絕不在後續幾十個分段裡重複撞牆浪費時間！
+                if (/PerDay|GenerateRequestsPerDay|limit:\s*0\b|billing/i.test(errBody)) {
+                  retiredGeminiModels.add(model);
+                  sawDailyExhausted = true;
+                } else {
+                  sawRateLimit429 = true;
+                }
               }
               lastError = new Error(`HTTP ${res.status}: ${errBody.slice(0, 120)}`);
             }
           } catch (e) {
             if (timerId) clearTimeout(timerId);
+            if (opts.abortSignal) { try { opts.abortSignal.removeEventListener('abort', onParentAbort); } catch (_) {} }
+            if (opts.abortSignal && opts.abortSignal.aborted) {
+              const cancelErr = new Error('使用者已停止分析');
+              cancelErr.isUserCancelled = true;
+              throw cancelErr;
+            }
             lastError = e && e.name === 'AbortError'
-              ? new Error(`模型 ${model} 回應逾時，已自動切換備援通道`)
+              ? new Error(`模型 ${model} 回應逾時 (${Math.round(perAttemptTimeoutMs / 1000)}s)`)
               : e;
           }
         }
-        // 若全部可用通道皆回傳 429（免費額度每分鐘次數暫滿），顯示透明倒數並冷卻 8 秒後自動重試！
+        // 若所有高精準模型皆因「今日免費額度已滿」停用，立即誠實中止，絕不空轉 2 小時！
+        if (opts.highAccuracyAudio && sawDailyExhausted && nonLiteCandidates.every(m => retiredGeminiModels.has(m))) {
+          const qErr = new Error('此 API 金鑰今日免費版高精準模型額度已用罄（Daily Quota Exhausted）');
+          qErr.isDailyQuotaExhausted = true;
+          throw qErr;
+        }
+        // 若為每分鐘次數 (RPM) 暫滿，顯示透明倒數並冷卻 12 秒後重試（支援隨時按停止分析中斷）！
         if (round === 0 && sawRateLimit429) {
           const cooldownMs = (typeof window !== 'undefined' && typeof window.__NOVERA_429_COOLDOWN_MS === 'number')
             ? Math.max(100, window.__NOVERA_429_COOLDOWN_MS)
@@ -15249,6 +15393,11 @@ ${retrieval.contextText}
             }
             if (syncTxtEl && (isTranscribingAudio || isFlushingLiveSlice)) {
               syncTxtEl.innerText = `API 額度冷卻重試 (${rem}s)...`;
+            }
+            if (opts.abortSignal && opts.abortSignal.aborted) {
+              const cancelErr = new Error('使用者已停止分析');
+              cancelErr.isUserCancelled = true;
+              throw cancelErr;
             }
             await new Promise(r => setTimeout(r, Math.min(1000, cooldownMs)));
             if (cooldownMs < 1000) break;
