@@ -6611,9 +6611,9 @@
               <span id="liveAiSyncText">即時收音中</span>
             </span>
             <button id="btnRetranslateAll" class="btn"
-              style="padding:4px 9px; font-size:11.5px; background:var(--amber-soft); color:var(--amber); border-color:#E8D5B5;"
-              onclick="runGeminiNativeAudioRetranslate()" title="自動從錄音或錄影檔提取純音軌並重新完整轉寫逐字稿">
-              全檔原音重聽
+              style="padding:4px 10px; font-size:11.5px; font-weight:700; background:var(--amber-soft); color:var(--amber); border-color:#E8D5B5;"
+              onclick="runGeminiNativeAudioRetranslate()" title="請 Gemini AI 重新分析本場錄音／視訊影音檔（重新提取 16kHz 高清 WAV 音軌、視訊與會者名牌與國台語聲紋逐字稿）">
+              ↻ AI 重新分析影音
             </button>
             <button type="button" id="btnToggleReviewBar" class="btn"
               style="padding:4px 9px; font-size:11.5px;"
@@ -10014,7 +10014,7 @@
             if (aiStrategy === 'smart_post') {
               if (alreadyFullyLiveRefined) {
                 const statusHint = document.getElementById('mediaStatusHint');
-                if (statusHint) statusHint.innerText = '已完成全場即時 AI 原音聽譯與聲紋分人。點擊段落可同步跳轉播放（亦可點「全檔原音重聽」重新精修）';
+                if (statusHint) statusHint.innerText = '已完成全場即時 AI 原音聽譯與聲紋分人。點擊段落可同步跳轉播放（亦可點「AI 重新分析影音」重新精修）';
                 const syncBdg = document.getElementById('liveAiSyncBadge');
                 if (syncBdg && !isRecording) syncBdg.classList.remove('active');
               } else if (finalBlob.size > 1000 || transcriptSegments.length > 0) {
@@ -10216,7 +10216,7 @@
             if (aiStrategy === 'smart_post') {
               if (alreadyFullyLiveRefined) {
                 const statusHint = document.getElementById('mediaStatusHint');
-                if (statusHint) statusHint.innerText = '已完成全場即時 AI 原音聽譯與聲紋分人。點擊段落可同步跳轉視訊畫面（亦可點「全檔原音重聽」重新精修）';
+                if (statusHint) statusHint.innerText = '已完成全場即時 AI 原音聽譯與聲紋分人。點擊段落可同步跳轉視訊畫面（亦可點「AI 重新分析影音」重新精修）';
                 const syncBdg = document.getElementById('liveAiSyncBadge');
                 if (syncBdg && !isRecording) syncBdg.classList.remove('active');
               } else if (finalBlob.size > 1000 || transcriptSegments.length > 0) {
@@ -10684,6 +10684,13 @@
           .replace(/閣/g, '再')
           .replace(/矣([！!。？?，,\s]|$)/g, '了$1');
       }
+      // 修正台語「聽無 / 看無」在 note 已標註台語原音時，text 被誤譯為「聽不到 / 看不到」的常見語意偏差（台語「聽無」= 聽不懂，「聽袂著」才是聽不到）
+      if (note && /聽無/.test(note) && /聽不到/.test(text)) {
+        text = text.replace(/聽不到/g, '聽不懂');
+      }
+      if (note && /看無/.test(note) && /看不到/.test(text)) {
+        text = text.replace(/看不到/g, '看不懂');
+      }
       return { text, note };
     }
 
@@ -10760,7 +10767,7 @@ ${pureTwFocus}- 請務必依照「先聽辨台語原話 -> 再翻譯為標準中
   1. 先填 "note"（台語原音對照）：若該句包含台語發音或國台語夾雜，請先將實際聽到的台語詞句以教育部台語推薦漢字／常見口語漢字寫入 "note"，格式為「[台語原音] 聽到的台語原話」；若整句皆為純國語，則 "note" 填空字串 ""。
   2. 再填 "text"（標準中文白話文）：根據音訊語意與剛剛辨識出的 "note"，將整句話準確翻譯／轉寫為通順自然的「台灣現代標準中文白話文」，不要在 "text" 殘留「毋知、敢會、會使無、想欲、按呢、這馬、佇咧、啥物、規氣、無愛、袂使、袂赴、明仔載」等台語專屬字詞（請對應譯為「不知道、會不會/行不行、可以嗎、想要、這樣、現在、正在、什麼、乾脆、不要、不行、來不及、明天」）。
 - 常見台語口語與台灣商務／工程協調語彙參考（僅在音訊確實出現該發音時採用，嚴禁無中生有）：
-  • 日常商務：食飽未(吃飽沒)、毋知影(不知道)、按怎(怎麼)、按呢(這樣)、敢會使/會使無(可以嗎)、袂赴(來不及)、這馬(現在)、拄仔(剛才)、明仔載(明天)、昨昏(昨天)、透早(一早)、下晡(下午)、啥物代誌(什麼事)、規氣(乾脆)、佳哉(幸好)、歹勢(不好意思)、有影無(真的嗎)、無要緊(沒關係)、煞煞去(算了)、較緊咧(快一點)、家己(自己)、攏總(全部)、足濟(很多)、頭家(老闆)、生理(生意)、拍損(浪費)、閣再(再)。
+  • 日常商務：講台語(kóng Tâi-gí，切勿誤聽為「放台語」)、聽無(聽不懂，切勿誤譯為「聽不到」；「聽袂著」才是聽不到)、看無(看不懂)、食飽未(吃飽沒)、毋知影(不知道)、按怎(怎麼)、按呢(這樣)、敢會使/會使無(可以嗎)、袂赴(來不及)、這馬(現在)、拄仔(剛才)、明仔載(明天)、昨昏(昨天)、透早(一早)、下晡(下午)、啥物代誌(什麼事)、規氣(乾脆)、佳哉(幸好)、歹勢(不好意思)、有影無(真的嗎)、無要緊(沒關係)、煞煞去(算了)、較緊咧(快一點)、家己(自己)、攏總(全部)、足濟(很多)、頭家(老闆)、生理(生意)、拍損(浪費)、閣再(再)。
   • 實務會議常見穿插詞：師仔/師傅、工班、放樣、板模(模板)、綁鐵仔(綁鋼筋)、灌漿、養生、抓漏、水電、配管、估價、追加減、廠登(工廠登記)、使照(使用執照)、建照、驗收、點交。`;
     }
 
@@ -11292,7 +11299,7 @@ ${speakerRule}
         smart_post: '已切換為「智慧省額度模式」：平時省額度、結束自動以 16kHz 高清 WAV 精修國台語（純台語優先支援說話停頓自動批次聽譯）！',
         interval_180: '已切換為「每 3 分鐘批次校正」：錄音每滿 3 分鐘自動送出一次原音精修（3 小時約 60 次 API）',
         interval_60: '已切換為「每 1 分鐘批次校正」：適合 1 小時內短會議即時精修',
-        local_only: '已切換為「純本地 0 消耗模式」：錄音全程不呼叫 API，僅在點擊「全檔原音重聽」或「生成會議紀錄」時才呼叫'
+        local_only: '已切換為「純本地 0 消耗模式」：錄音全程不呼叫 API，僅在點擊「AI 重新分析影音」或「生成會議紀錄」時才呼叫'
       };
       showToast(msgMap[v] || '已更新原音 AI 校正策略');
     }
@@ -11785,19 +11792,60 @@ ${speakerRule}
       await runGeminiAudioTranscription(file);
     }
 
+    function syncReanalyzeButtonsUI(running) {
+      const ids = ['btnRetranslateAll', 'spCardReanalyzeBtn', 'spVideoCardReanalyzeBtn'];
+      ids.forEach(id => {
+        const el = document.getElementById(id);
+        if (!el) return;
+        el.disabled = Boolean(running);
+        el.innerText = running ? '↻ AI 分析影音中...' : '↻ AI 重新分析影音';
+      });
+    }
+
     async function runGeminiNativeAudioRetranslate() {
       if (isTranscribingAudio) {
-        showToast('全檔原音聽譯已在執行中，請稍候...');
+        showToast('AI 影音分析已在執行中，請稍候...');
         return;
       }
-      if (!currentMediaBlob && recordedChunks.length === 0) {
-        showToast('目前尚無錄音或影片檔可供重聽，請先錄製或匯入檔案');
+      if (!getEffectiveGeminiKey()) {
+        showToast('請先設定免費 Gemini API 金鑰，即可請 AI 重新分析影音！');
+        if (typeof openSettingsModal === 'function') openSettingsModal();
         return;
       }
-      const blob = currentMediaBlob || new Blob(recordedChunks, { type: currentMediaType === 'video' ? 'video/webm' : 'audio/webm' });
-      showToast('正在從錄製檔案中提取純音軌並進行完整台語意譯與多講者分離...');
-      await runGeminiAudioTranscription(blob);
+      if (isRecording) {
+        showToast('錄製進行中：已立即將目前收音片段交由 AI 聽譯校正（全檔重分析請於停止錄製後點擊）');
+        await flushPcmSliceToGemini(false, true);
+        return;
+      }
+      let blob = currentMediaBlob;
+      if (!blob && Array.isArray(recordedChunks) && recordedChunks.length > 0) {
+        blob = new Blob(recordedChunks, { type: currentMediaType === 'video' ? 'video/webm' : 'audio/webm' });
+      }
+      if (!blob && currentSessionId) {
+        try {
+          const dbBlob = await getMediaBlobFromDB(currentSessionId);
+          if (dbBlob) {
+            blob = dbBlob;
+            currentMediaBlob = dbBlob;
+            attachMediaBlobToPlayers(dbBlob, currentMediaType);
+          }
+        } catch (_) {}
+      }
+      const prebuiltCheck = (!blob && currentSessionId) ? await getPrebuiltAudioChunksFromDB(currentSessionId) : null;
+      if (!blob && (!Array.isArray(prebuiltCheck) || prebuiltCheck.length === 0)) {
+        showToast('目前本場次尚無錄音或影片檔可供 AI 重新分析，請先錄製或點「匯入影音檔」');
+        return;
+      }
+      const isVid = currentMediaType === 'video' || Boolean(blob && String(blob.type || '').startsWith('video/'));
+      showToast(isVid
+        ? '正在請 AI 重新分析視訊畫面名牌與 16kHz 高清音軌（國台語聽譯＋多講者分離）...'
+        : '正在從原始錄音重新提取 16kHz 高清 WAV 並請 AI 重新分析國台語逐字稿...');
+      if (isVid && typeof detectSpeakersFromVideoScreen === 'function') {
+        try { await detectSpeakersFromVideoScreen(true); } catch (_) {}
+      }
+      await runGeminiAudioTranscription(blob, { forceFreshDecode: true });
     }
+    window.runGeminiNativeAudioRetranslate = runGeminiNativeAudioRetranslate;
 
     function polishSegmentLocally(seg, dictPairs, markRefined = true) {
       if (seg.manualEdited || seg.isManualNote) {
@@ -11855,14 +11903,13 @@ ${speakerRule}
       return true;
     }
 
-    async function runGeminiAudioTranscription(blob) {
+    async function runGeminiAudioTranscription(blob, options = {}) {
       if (isTranscribingAudio) {
-        showToast('原音聽譯與聲紋分離已在進行中，請稍候...');
+        showToast('AI 影音分析與聲紋分離已在進行中，請稍候...');
         return;
       }
       isTranscribingAudio = true;
-      const retranslateBtn = document.getElementById('btnRetranslateAll');
-      if (retranslateBtn) retranslateBtn.disabled = true;
+      syncReanalyzeButtonsUI(true);
 
       const targetSessionId = currentSessionId;
       const statusHint = document.getElementById('mediaStatusHint');
@@ -11887,9 +11934,10 @@ ${speakerRule}
         .map(s => ({ ...s, matched: false }));
 
       try {
-        // 優先使用錄製過程中每 10 分鐘自動側錄封裝之超輕量純音訊包（3 小時螢幕錄影 1GB+ 免解碼、0 記憶體暴衝、整場 3 小時僅 18 段）！
+        // 若使用者手動點擊「AI 重新分析影音」(forceFreshDecode) 且母檔 <= 250MB，直接從完整母檔重新提取 16kHz 無損 WAV（繞過舊版低碼率快取）；超長會議大檔則使用側錄分塊並逐段轉 16kHz WAV
         let audioChunks = [];
-        const prebuilt = (blob === currentMediaBlob || !blob)
+        const canDirectDecodeMaster = Boolean(options && options.forceFreshDecode && blob && blob.size > 0 && blob.size <= 250 * 1024 * 1024);
+        const prebuilt = (!canDirectDecodeMaster && (blob === currentMediaBlob || !blob))
           ? await getPrebuiltAudioChunksFromDB(targetSessionId)
           : null;
 
@@ -12141,7 +12189,7 @@ ${langInstruction}
           }
           if (currentSessionId === targetSessionId && transcriptSegments.length > 0) {
             calibrateTranscriptSegmentsLocally(false);
-            if (statusHint) statusHint.innerText = '音軌未辨識出新增語句，已保留既有初稿（可點擊「全檔原音重聽」重試）';
+            if (statusHint) statusHint.innerText = '音軌未辨識出新增語句，已保留既有初稿（可點擊「AI 重新分析影音」重試）';
             showToast('音軌未辨識出新增語句，已保留既有初稿');
             return;
           }
@@ -12189,15 +12237,15 @@ ${langInstruction}
         console.warn('Cloud audio refinement error:', err);
         const errMsg = String(err && err.message ? err.message : err);
         if (currentSessionId === targetSessionId && calibrateTranscriptSegmentsLocally(false)) {
-          if (statusHint) statusHint.innerText = 'AI 雲端原音聽譯未完成（' + errMsg.slice(0, 60) + '），目前保留瀏覽器初稿，稍後可點「全檔原音重聽」重試';
-          showToast('提醒：AI 原音校正未完成（' + errMsg.slice(0, 42) + '），可點「全檔原音重聽」重試');
+          if (statusHint) statusHint.innerText = 'AI 雲端影音分析未完成（' + errMsg.slice(0, 60) + '），目前保留瀏覽器初稿，稍後可點「AI 重新分析影音」重試';
+          showToast('提醒：AI 影音分析未完成（' + errMsg.slice(0, 42) + '），可點「AI 重新分析影音」重試');
         } else {
           if (statusHint) statusHint.innerText = '音檔聽譯失敗：' + errMsg;
           showToast('音訊聽譯失敗：' + errMsg);
         }
       } finally {
         isTranscribingAudio = false;
-        if (retranslateBtn) retranslateBtn.disabled = false;
+        syncReanalyzeButtonsUI(false);
         if (syncBadge && !isRecording) syncBadge.classList.remove('active');
         if (currentSessionId === targetSessionId) {
           renderTranscript();
@@ -19130,7 +19178,12 @@ ${segLines || '(無逐字稿，請依上方現有摘要決議整理)'}`;
                 <span class="sp-s3d-kicker">LIVE TRANSCRIPT · 04-A</span>
                 <span class="sp-s3d-title">現場收音與時間軸逐字稿艙</span>
               </div>
-              <button type="button" class="sp-s3d-jump-btn" data-jump-depth="4" data-jump-card="0">↓ 進入下層 AI 會議紀錄</button>
+              <div class="sp-s3d-head-actions">
+                <button type="button" class="sp-s3d-jump-btn" id="spCardReanalyzeBtn"
+                  style="background:var(--amber-soft); color:var(--amber); border-color:#E8D5B5; font-weight:800;"
+                  title="請 Gemini AI 重新分析本場錄音／視訊影音檔（重新提取 16kHz 高清 WAV 音軌與國台語聲紋逐字稿）">↻ AI 重新分析影音</button>
+                <button type="button" class="sp-s3d-jump-btn" data-jump-depth="4" data-jump-card="0">↓ 進入下層 AI 會議紀錄</button>
+              </div>
             </div>
             <div id="spMountTranscriptBody" class="sp-s3d-body"></div>
           </article>
@@ -19143,6 +19196,9 @@ ${segLines || '(無逐字稿，請依上方現有摘要決議整理)'}`;
                 <span class="sp-s3d-title">視訊會議・螢幕錄影與關鍵截圖膠捲艙</span>
               </div>
               <div class="sp-s3d-head-actions">
+                <button type="button" class="sp-s3d-jump-btn" id="spVideoCardReanalyzeBtn"
+                  style="background:var(--amber-soft); color:var(--amber); border-color:#E8D5B5; font-weight:800;"
+                  title="請 Gemini AI 重新分析本場視訊畫面名牌與 16kHz 音軌逐字稿">↻ AI 重新分析影音</button>
                 <button type="button" class="sp-s3d-jump-btn" id="spCardStartVideoBtn">啟動螢幕 / 鏡頭錄影</button>
                 <button type="button" class="sp-s3d-jump-btn" id="spCardImportVideoBtn">匯入影音檔</button>
               </div>
@@ -22916,6 +22972,15 @@ ${segLines || '(無逐字稿，請依上方現有摘要決議整理)'}`;
         if (fi) fi.click();
       });
     }
+    ['spCardReanalyzeBtn', 'spVideoCardReanalyzeBtn'].forEach(function (btnId) {
+      const rb = document.getElementById(btnId);
+      if (rb) {
+        rb.addEventListener('click', function (ev) {
+          ev.stopPropagation();
+          probeAndInvokeCapability(['runGeminiNativeAudioRetranslate'], ['btnRetranslateAll'], '找不到 AI 重新分析影音模組');
+        });
+      }
+    });
 
     // 左側五層深度軌節點點擊 (01 ~ 05)
     for (let d = 0; d <= 4; d++) {
@@ -24402,6 +24467,20 @@ ${segLines || '(無逐字稿，請依上方現有摘要決議整理)'}`;
             ['toggleFloatingCapsule', 'openFloatingCapsule'],
             ['btnFloatingCapsule'],
             '桌面懸浮膠囊模組待命中'
+          );
+        }
+      },
+      {
+        id: 'cmd-ai-reanalyze-media',
+        title: '請 AI 重新分析影音（重跑 16kHz 國台語逐字稿與聲紋）',
+        sub: '從本場錄音或視訊檔重新提取高清音軌與畫面名牌，交由 Gemini AI 完整重聽校正',
+        keywords: 'ai reanalyze retranslate audio video 重新分析 影音 原音重聽 台語 逐字稿 校正',
+        hint: 'AI 重分析 ↵',
+        run: function () {
+          probeAndInvokeCapability(
+            ['runGeminiNativeAudioRetranslate'],
+            ['btnRetranslateAll'],
+            '已觸發 AI 重新分析影音'
           );
         }
       },
