@@ -6471,20 +6471,33 @@
       </div>
 
       <div class="top-actions">
+        <div class="pill-select" title="收音場景模式：預設「多人會議原音」徹底關閉會把遠處講者當雜音抹除的單人通話降噪與回音閘門，消除水底悶糊音！">
+          <span>收音:</span>
+          <select id="micSceneModeSelect" aria-label="麥克風收音場景模式" onchange="onMicSceneModeChange(this.value)">
+            <option value="room_clear" selected>多人會議原音(防悶糊·推薦)</option>
+            <option value="raw_pure">外接麥克風無損直通</option>
+            <option value="solo_denoise">單人近距抗噪</option>
+          </select>
+        </div>
         <div class="pill-select" title="選擇電腦上的麥克風收音裝置（支援會議進行中即時切換）">
           <span>麥克風:</span>
-          <select id="micDeviceSelect" aria-label="麥克風收音裝置" onchange="onMicDeviceChange(this.value)" style="max-width:170px;">
+          <select id="micDeviceSelect" aria-label="麥克風收音裝置" onchange="onMicDeviceChange(this.value)" style="max-width:148px;">
             <option value="">系統預設麥克風</option>
           </select>
         </div>
-        <div class="pill-select" title="麥克風收音增益放大倍率（預設 1.0x 原音防破音，小聲音軌由 16kHz WAV 引擎自動無損正規化）">
+        <div class="pill-select" title="麥克風線性收音增益放大倍率（多人會議預設自動搭配清晰人聲頻段補償）">
           <span>增益:</span>
           <select id="micGainSelect" aria-label="麥克風收音增益" onchange="onMicGainChange()">
-            <option value="1.0" selected>1.0x (原音防破音·推薦)</option>
-            <option value="1.5">1.5x (微弱放大)</option>
+            <option value="1.0" selected>1.0x (會議均衡·推薦)</option>
+            <option value="1.5">1.5x (中距增強)</option>
             <option value="2.0">2.0x (遠距補強)</option>
+            <option value="3.0">3.0x (大會議室放大)</option>
           </select>
         </div>
+        <button type="button" id="btnQuickMicCheck" class="btn" style="padding:5px 9px; font-size:11.5px; font-weight:700;"
+          onclick="openQuickMicHealthModal()" title="3.5 秒實測麥克風原音清晰度、自動回放試聽，並檢查筆電是否誤開單人通話降噪">
+          試音檢測
+        </button>
 
         <!-- 1. 錄音按鈕 -->
         <button id="btnAudioRec" class="btn btn-audio-rec" onclick="toggleAudioRecording()">
@@ -6542,6 +6555,10 @@
             <path d="M11.5 5.2L14.5 8l-3 2.8"></path>
           </svg>
           <span>跳過空白</span>
+        </button>
+        <button id="btnEnhancePlayback" type="button" class="btn btn-skip-silence" onclick="togglePlaybackClarityBoost()"
+          title="回放人聲清晰增強：濾除桌面低頻悶糊箱音並提升 2.8kHz 咬字清晰度，讓已錄製的小聲或悶糊錄音更好聽清楚">
+          <span>清晰回放</span>
         </button>
         <span id="savedSilenceBadge" class="saved-silence-badge" title="本場回放已自動為您節省的空白等待時間">已省 00:00</span>
         <span id="mediaStatusHint" style="font-size:12px; color:var(--text-secondary); font-weight:600; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">
@@ -6618,6 +6635,13 @@
               <span class="status-dot live" style="width:6px;height:6px;"></span>
               <span id="liveAiSyncText">即時收音中</span>
             </span>
+            <select id="audioModelSelect" class="solo-playback-select" onchange="onAudioModelSelectChange(this.value)"
+              title="選擇語音聽譯與多講者聲紋分離模型：預設自動偵測您金鑰可用的最新 Gemini 3.x / Pro / Flash 高精準模型">
+              <option value="auto_best" selected>AI模型：自動最新 (Gemini 3.x)</option>
+              <option value="pro_first">AI模型：Pro 深層聲紋優先</option>
+              <option value="gemini-2.5-pro">AI模型：gemini-2.5-pro</option>
+              <option value="gemini-2.5-flash">AI模型：gemini-2.5-flash</option>
+            </select>
             <button id="btnRetranslateAll" class="btn"
               style="padding:4px 10px; font-size:11.5px; font-weight:700; background:var(--amber-soft); color:var(--amber); border-color:#E8D5B5;"
               onclick="runGeminiNativeAudioRetranslate()" title="請 Gemini AI 重新分析本場錄音／視訊影音檔（重新提取 16kHz 高清 WAV 音軌、視訊與會者名牌與國台語聲紋逐字稿）">
@@ -7211,6 +7235,34 @@
     </div>
   </div>
 
+  <!-- 麥克風 3.5 秒原音試錄檢測與筆電系統降噪排障視窗 -->
+  <div id="micHealthModal" class="modal-backdrop" style="display:none;" role="dialog" aria-modal="true" aria-labelledby="micHealthModalTitle">
+    <div class="modal-card" style="max-width:540px; width:92%;">
+      <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:10px;">
+        <h3 id="micHealthModalTitle" style="margin:0; font-size:16px; color:var(--text-main);">麥克風原音清晰度實測與收音排障</h3>
+        <button type="button" class="btn" style="padding:3px 9px; font-size:12px;" onclick="closeQuickMicHealthModal()">關閉</button>
+      </div>
+      <div style="font-size:12.5px; color:var(--text-secondary); line-height:1.6; margin-bottom:12px;">
+        點擊下方「開始 3.5 秒實測錄音」，對著麥克風與距離 1~2 公尺處各說一句話，系統將立即播放真實錄到的聲音並診斷音質。
+      </div>
+      <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap; margin-bottom:12px;">
+        <button type="button" id="btnStartMicSampleTest" class="btn btn-primary" onclick="runQuickMicSelfTest()">開始 3.5 秒實測錄音</button>
+        <span id="micTestLiveStatus" style="font-size:12.5px; font-weight:700; color:var(--accent-green);">準備就緒</span>
+      </div>
+      <div id="micTestResultBox" style="display:none; padding:12px; border-radius:10px; background:var(--bg-subtle); border:1px solid var(--border-light); margin-bottom:12px;">
+        <div id="micTestMetricsText" style="font-size:12.5px; font-weight:700; color:var(--text-main); margin-bottom:8px;"></div>
+        <audio id="micTestPlaybackAudio" controls style="width:100%; height:36px;"></audio>
+      </div>
+      <div style="padding:11px 13px; border-radius:10px; background:#FDF8EE; border:1px solid #E8D5B5; font-size:12px; color:#5C3D0E; line-height:1.65;">
+        <div style="font-weight:700; margin-bottom:4px;">關鍵硬體提醒（若回放聽起來像在水底悶糊、或坐遠一點的人聲音被切掉）：</div>
+        <div>1. 本工具現已預設切換為<strong>「多人會議原音（關閉瀏覽器單人降噪閘門）」</strong>。</div>
+        <div>2. <strong>ASUS / Windows 11 筆電必看</strong>：原廠常預設開啟硬體級「單人視訊降噪」，會把電腦正前方以外第 2~4 人的聲音在進瀏覽器前就當成雜音抹除！請檢查：<br/>
+          • <strong>MyASUS 程式</strong> → 音效與視覺 → <strong>AI 降噪麥克風</strong> → 請改為<strong>「多人會議模式（全向收音）」或「關閉」</strong>。<br/>
+          • <strong>Windows 設定</strong> → 系統 → 音效 → 點選麥克風 → 將<strong>「音訊增強（語音焦點）」設為「關閉」</strong>。</div>
+      </div>
+    </div>
+  </div>
+
   <!-- 頁面內可自由拖曳之懸浮錄音膠囊備援面板（當瀏覽器阻擋彈窗且不支援 Document PiP 時自動啟用） -->
   <div id="inlineFloatingCapsule" class="inline-floating-capsule" style="display:none;"></div>
 
@@ -7228,6 +7280,25 @@
     }
     // 嚴格零寫死金鑰原則：所有 API 金鑰一律僅從使用者本機瀏覽器讀取，絕不在原始碼寫死任何金鑰或憑證！
     const PRIMARY_MODEL = 'gemini-2.5-flash';
+    let selectedAudioModelPref = (function () {
+      try { return localStorage.getItem('novera_audio_model_pref') || 'auto_best'; } catch (_) { return 'auto_best'; }
+    })();
+    let selectedMicSceneMode = (function () {
+      try { return localStorage.getItem('novera_mic_scene_mode') || 'room_clear'; } catch (_) { return 'room_clear'; }
+    })();
+    let lastSuccessfulGeminiModel = '';
+    let discoveredGeminiModels = [];
+    let discoveredForKeyHash = '';
+    let _discoverModelsPromise = null;
+
+    function onAudioModelSelectChange(val) {
+      selectedAudioModelPref = String(val || 'auto_best').trim() || 'auto_best';
+      try { localStorage.setItem('novera_audio_model_pref', selectedAudioModelPref); } catch (_) {}
+      const sel = document.getElementById('audioModelSelect');
+      if (sel && sel.value !== selectedAudioModelPref) sel.value = selectedAudioModelPref;
+      showToast('已切換語音辨識模型策略：' + (sel?.options?.[sel.selectedIndex]?.text || selectedAudioModelPref));
+    }
+    window.onAudioModelSelectChange = onAudioModelSelectChange;
 
     const DEFAULT_NOTE_OVERVIEW_EMPTY = '尚無摘要。請先開始錄音、錄影或匯入檔案後，點擊右上角「生成會議紀錄」。';
     const DEFAULT_NOTE_OVERVIEW_ALT = '尚無摘要。請點擊右上角「生成會議紀錄」。';
@@ -7250,7 +7321,8 @@
       if (!badge) return;
       const hasKey = Boolean(getEffectiveGeminiKey());
       if (hasKey) {
-        badge.innerText = `AI 金鑰就緒 · 呼叫 ${apiCallCount} 次`;
+        const mdlTag = lastSuccessfulGeminiModel ? ` (${lastSuccessfulGeminiModel})` : '';
+        badge.innerText = `AI 就緒${mdlTag} · 呼叫 ${apiCallCount} 次`;
         badge.style.background = 'var(--accent-green-soft)';
         badge.style.color = 'var(--accent-green)';
         badge.style.borderColor = '#B7CDBD';
@@ -7290,10 +7362,8 @@
     let searchDebounceTimer = null;
     let transcriptRenderWindow = 300;
 
+    // 客觀講者命名原則：自動聲紋分離一律預設標記「講者 A / 講者 B / 講者 C / 講者 D…」，絕不把第 1 位開口的他人誤貼上登入者姓名！
     function getPrimaryHostSpeakerName() {
-      if (typeof googleConnectedName === 'string' && googleConnectedName && googleConnectedName !== 'Google 已登入帳號' && googleConnectedName !== '訪客模式') {
-        return googleConnectedName;
-      }
       return '講者 A';
     }
 
@@ -7471,11 +7541,33 @@
       return `講者 P${registry.length + 1}`;
     }
 
-    // 跨切片／跨分段多語者聲紋對齊引擎：嚴格阻擋「男女聲混用」與「高低音域覆寫」，確保 4 人以上對話自動完整浮現講者 A/B/C/D...
+    // 跨切片／跨分段多語者聲紋對齊引擎：支援單次全檔盤點 1 對 1 完整保留 2~8 位講者（含多位同性別講者），並阻擋男女混標！
     function resolveMultiSpeakerIdentity(rawSpeaker, voiceTrait, acoustics, registry, sliceState) {
       const normLabel = normalizeRawSpeakerLabel(rawSpeaker);
       const sig = parseVoiceTraitSignature(voiceTrait, acoustics);
       const sliceKey = `${normLabel}|${sig.gender}|${sig.register}`;
+
+      if (sliceState && sliceState.rawLabelToSpeaker.has(normLabel)) {
+        const boundSp = sliceState.rawLabelToSpeaker.get(normLabel);
+        const boundRec = registry.find(r => r.speakerName === boundSp);
+        const genderConflict = boundRec && sig.gender !== 'U' && boundRec.gender !== 'U' && sig.gender !== boundRec.gender;
+        if (!genderConflict) {
+          if (boundRec) {
+            if (boundRec.gender === 'U' && sig.gender !== 'U') boundRec.gender = sig.gender;
+            if (boundRec.register === 'unknown' && sig.register !== 'unknown') boundRec.register = sig.register;
+            if (!boundRec.traitText && sig.traitText) boundRec.traitText = sig.traitText;
+            if (acoustics && acoustics.voicedCount >= 3 && acoustics.medianPitchHz > 0) {
+              boundRec.pitchHz = boundRec.pitchHz > 0
+                ? (boundRec.pitchHz * 0.72 + acoustics.medianPitchHz * 0.28)
+                : acoustics.medianPitchHz;
+            }
+          }
+          return {
+            speakerName: boundSp,
+            voiceTrait: sig.traitText || (boundRec ? boundRec.traitText : '')
+          };
+        }
+      }
 
       if (sliceState && sliceState.labelKeyToSpeaker.has(sliceKey)) {
         const cachedSp = sliceState.labelKeyToSpeaker.get(sliceKey);
@@ -8160,7 +8252,7 @@
     }
 
     // 長會議高保真純音訊側錄分塊快取：每 5 分鐘（300 秒）封裝一段 96kbps 高清純音訊包，會後逐段解碼為 16kHz 無損 WAV（單段 ~9.1MB < 20MB 上限），兼顧台語高精準辨識與零記憶體暴衝！
-    const MARATHON_CHUNK_SEC = 60;
+    const MARATHON_CHUNK_SEC = 360; // 6 分鐘單次全觀音訊視窗（16kHz 單聲道 WAV 約 11MB < 20MB 上限），讓最新模型一次聽完所有講者聲音精準分人！
     const MARATHON_LIVE_FIRST_SLICE_SEC = 9;
     const MARATHON_LIVE_BATCH_SLICE_SEC = 13;
     const TAIWANESE_LIVE_SLICE_MIN_SEC = 9;
@@ -10371,18 +10463,316 @@
       }
     }
 
-    // 對齊 11/11 穩定收音基準：保留瀏覽器標準穩態風扇底噪抑制 (noiseSuppression: true) 與自動增益 (autoGainControl: true)，濾除筆電內部散熱風扇底噪且不鎖單一聲紋！
+    // 多人會議高保真收音引擎：
+    // 預設「room_clear (多人會議原音)」在純麥克風錄音時徹底關閉 echoCancellation / noiseSuppression / autoGainControl，
+    // 解除 Windows WASAPI「單人通話窄波束封鎖」與 WebRTC 把遠處第 2~4 位講者當背景雜音切碎的水底悶糊失真！
+    function getActiveMicSceneMode() {
+      const el = document.getElementById('micSceneModeSelect');
+      return (el && el.value) ? el.value : (selectedMicSceneMode || 'room_clear');
+    }
+
+    function getEffectiveMicLinearGain() {
+      const rawVal = parseFloat(document.getElementById('micGainSelect')?.value || '1.0') || 1.0;
+      const mode = getActiveMicSceneMode();
+      // 在關閉瀏覽器失真 AGC 的「多人會議原音」模式下，賦予純線性 1.45x 錄音室前級補償，確保中遠距說話清晰響亮且不破音！
+      return mode === 'room_clear' ? Number((rawVal * 1.45).toFixed(3)) : rawVal;
+    }
+
     function buildMicAudioConstraints(deviceIdOverride, forScreenShare = false) {
       const devId = (deviceIdOverride !== undefined ? deviceIdOverride : selectedMicDeviceId) || '';
-      const base = {
-        echoCancellation: true,
-        autoGainControl: true,
-        noiseSuppression: true,
-        channelCount: 1
-      };
+      const sceneMode = getActiveMicSceneMode();
+      const isSoloDenoise = (sceneMode === 'solo_denoise');
+      const base = isSoloDenoise
+        ? {
+            echoCancellation: true,
+            autoGainControl: true,
+            noiseSuppression: true,
+            channelCount: 1
+          }
+        : {
+            echoCancellation: Boolean(forScreenShare),
+            autoGainControl: false,
+            noiseSuppression: false,
+            sampleRate: { ideal: 48000 },
+            sampleSize: { ideal: 16 },
+            channelCount: { ideal: 1 }
+          };
       if (devId) base.deviceId = { exact: devId };
       return base;
     }
+
+    // 零底噪抽吸（Zero-Pumping）線性軟限幅曲線：|x| <= 0.88 維持 100% 精準 1.0000 線性原音，徹底取代會偷加 +8dB 底噪的 DynamicsCompressorNode！
+    let _cachedCleanCeilingCurve = null;
+    function getZeroPumpCeilingCurve() {
+      if (_cachedCleanCeilingCurve) return _cachedCleanCeilingCurve;
+      const n = 8192;
+      const curve = new Float32Array(n);
+      for (let i = 0; i < n; i++) {
+        const x = (i * 2) / (n - 1) - 1;
+        const ax = Math.abs(x);
+        if (ax <= 0.88) {
+          curve[i] = x;
+        } else {
+          const sign = x < 0 ? -1 : 1;
+          curve[i] = sign * (0.88 + 0.118 * Math.tanh((ax - 0.88) / 0.118));
+        }
+      }
+      _cachedCleanCeilingCurve = curve;
+      return curve;
+    }
+
+    // 建立錄音室級純線性清晰人聲濾波鏈（零閘門吞字、零水底音、消除桌面低頻箱音並強化 2.8kHz 國台語子音咬字）
+    function connectStudioSpeechClarityChain(ctx, inputNode, sceneMode) {
+      let tail = inputNode;
+      if (typeof ctx.createBiquadFilter === 'function') {
+        if (sceneMode === 'room_clear') {
+          const hp = ctx.createBiquadFilter();
+          hp.type = 'highpass';
+          hp.frequency.value = 85;
+          hp.Q.value = 0.707;
+
+          const deMud = ctx.createBiquadFilter();
+          deMud.type = 'peaking';
+          deMud.frequency.value = 255;
+          deMud.Q.value = 1.1;
+          deMud.gain.value = -2.5;
+
+          const presence = ctx.createBiquadFilter();
+          presence.type = 'peaking';
+          presence.frequency.value = 2850;
+          presence.Q.value = 0.85;
+          presence.gain.value = 3.2;
+
+          const lp = ctx.createBiquadFilter();
+          lp.type = 'lowpass';
+          lp.frequency.value = 7800;
+          lp.Q.value = 0.707;
+
+          tail.connect(hp);
+          hp.connect(deMud);
+          deMud.connect(presence);
+          presence.connect(lp);
+          tail = lp;
+        } else {
+          const hp = ctx.createBiquadFilter();
+          hp.type = 'highpass';
+          hp.frequency.value = 70;
+          hp.Q.value = 0.707;
+          tail.connect(hp);
+          tail = hp;
+        }
+      }
+      if (typeof ctx.createWaveShaper === 'function') {
+        const ceilingNode = ctx.createWaveShaper();
+        ceilingNode.curve = getZeroPumpCeilingCurve();
+        ceilingNode.oversample = '2x';
+        tail.connect(ceilingNode);
+        tail = ceilingNode;
+      }
+      return tail;
+    }
+
+    async function onMicSceneModeChange(newMode) {
+      selectedMicSceneMode = String(newMode || 'room_clear');
+      try { localStorage.setItem('novera_mic_scene_mode', selectedMicSceneMode); } catch (_) {}
+      const sel = document.getElementById('micSceneModeSelect');
+      if (sel && sel.value !== selectedMicSceneMode) sel.value = selectedMicSceneMode;
+      const modeDesc = {
+        room_clear: '多人會議原音模式（已關閉單人通話降噪閘門，消除遠處講者悶糊水底音）',
+        raw_pure: '外接麥克風無損直通模式（100% 原始頻響無處理）',
+        solo_denoise: '單人近距抗噪模式（適合單人貼近筆電通話）'
+      };
+      if (isRecording && audioContext) {
+        await onMicDeviceChange(selectedMicDeviceId);
+      }
+      showToast('已切換收音模式：' + (modeDesc[selectedMicSceneMode] || selectedMicSceneMode));
+    }
+    window.onMicSceneModeChange = onMicSceneModeChange;
+
+    // 回放人聲清晰增強引擎（讓已錄製的小聲或悶糊音檔在播放時立即濾除箱音、放大清晰咬字）
+    let playbackClarityEnabled = false;
+    let _playbackEnhanceCtx = null;
+    let _playbackEnhanceNodes = null;
+
+    function togglePlaybackClarityBoost(forceState) {
+      playbackClarityEnabled = typeof forceState === 'boolean' ? forceState : !playbackClarityEnabled;
+      const btn = document.getElementById('btnEnhancePlayback');
+      if (btn) {
+        btn.classList.toggle('active', playbackClarityEnabled);
+        btn.innerHTML = playbackClarityEnabled ? '<span>清晰回放 ✓</span>' : '<span>清晰回放</span>';
+      }
+      const ap = document.getElementById('audioPlayer');
+      if (playbackClarityEnabled && ap && !_playbackEnhanceNodes && typeof (window.AudioContext || window.webkitAudioContext) === 'function') {
+        try {
+          _playbackEnhanceCtx = new (window.AudioContext || window.webkitAudioContext)();
+          const src = _playbackEnhanceCtx.createMediaElementSource(ap);
+          const hp = _playbackEnhanceCtx.createBiquadFilter();
+          hp.type = 'highpass';
+          hp.frequency.value = 95;
+          hp.Q.value = 0.707;
+          const deMud = _playbackEnhanceCtx.createBiquadFilter();
+          deMud.type = 'peaking';
+          deMud.frequency.value = 250;
+          deMud.Q.value = 1.15;
+          deMud.gain.value = -4.2;
+          const presence = _playbackEnhanceCtx.createBiquadFilter();
+          presence.type = 'peaking';
+          presence.frequency.value = 2850;
+          presence.Q.value = 0.85;
+          presence.gain.value = 5.2;
+          const boost = _playbackEnhanceCtx.createGain();
+          boost.gain.value = 1.65;
+          const ceiling = _playbackEnhanceCtx.createWaveShaper();
+          ceiling.curve = getZeroPumpCeilingCurve();
+          _playbackEnhanceNodes = { src, hp, deMud, presence, boost, ceiling };
+          ap.addEventListener('play', () => {
+            if (_playbackEnhanceCtx && _playbackEnhanceCtx.state === 'suspended') {
+              _playbackEnhanceCtx.resume().catch(() => {});
+            }
+          });
+        } catch (e) {
+          console.warn('Playback clarity enhancer init skipped:', e);
+        }
+      }
+      if (_playbackEnhanceNodes && _playbackEnhanceCtx) {
+        const { src, hp, deMud, presence, boost, ceiling } = _playbackEnhanceNodes;
+        try { src.disconnect(); } catch (_) {}
+        try { hp.disconnect(); deMud.disconnect(); presence.disconnect(); boost.disconnect(); ceiling.disconnect(); } catch (_) {}
+        if (playbackClarityEnabled) {
+          if (_playbackEnhanceCtx.state === 'suspended') _playbackEnhanceCtx.resume().catch(() => {});
+          src.connect(hp);
+          hp.connect(deMud);
+          deMud.connect(presence);
+          presence.connect(boost);
+          boost.connect(ceiling);
+          ceiling.connect(_playbackEnhanceCtx.destination);
+        } else {
+          src.connect(_playbackEnhanceCtx.destination);
+        }
+      }
+      showToast(playbackClarityEnabled
+        ? '已開啟「清晰人聲回放」：已濾除低頻悶糊箱音並強化人聲咬字清晰度'
+        : '已切回原始錄音回放');
+      return playbackClarityEnabled;
+    }
+    window.togglePlaybackClarityBoost = togglePlaybackClarityBoost;
+
+    // 3.5 秒麥克風實測錄音與原音自動回放健檢工具
+    let _isRunningMicSelfTest = false;
+    let _micTestBlobUrl = null;
+
+    function openQuickMicHealthModal() {
+      if (isRecording) {
+        showToast('目前正在正式錄音中，請先結束錄音後再執行試音檢測');
+        return;
+      }
+      const m = document.getElementById('micHealthModal');
+      if (m) m.style.display = 'flex';
+    }
+    window.openQuickMicHealthModal = openQuickMicHealthModal;
+
+    function closeQuickMicHealthModal() {
+      const aud = document.getElementById('micTestPlaybackAudio');
+      if (aud) { try { aud.pause(); } catch (_) {} }
+      closeModal('micHealthModal');
+    }
+    window.closeQuickMicHealthModal = closeQuickMicHealthModal;
+
+    async function runQuickMicSelfTest() {
+      if (_isRunningMicSelfTest || isRecording) return;
+      _isRunningMicSelfTest = true;
+      const btn = document.getElementById('btnStartMicSampleTest');
+      const statusEl = document.getElementById('micTestLiveStatus');
+      const resBox = document.getElementById('micTestResultBox');
+      const metricsEl = document.getElementById('micTestMetricsText');
+      const playEl = document.getElementById('micTestPlaybackAudio');
+      if (btn) btn.disabled = true;
+      if (resBox) resBox.style.display = 'none';
+      let testStream = null;
+      let testCtx = null;
+      try {
+        if (statusEl) statusEl.innerText = '正在開啟麥克風...';
+        testCtx = new (window.AudioContext || window.webkitAudioContext)();
+        if (testCtx.state === 'suspended') await testCtx.resume();
+        testStream = await acquirePreferredMicStream(false);
+        const trk = testStream.getAudioTracks()[0];
+        const devLabel = (trk && trk.label) ? trk.label : '系統預設麥克風';
+        const src = testCtx.createMediaStreamSource(testStream);
+        const g = testCtx.createGain();
+        g.gain.value = getEffectiveMicLinearGain();
+        src.connect(g);
+        const cleanOut = connectStudioSpeechClarityChain(testCtx, g, getActiveMicSceneMode());
+        const dest = testCtx.createMediaStreamDestination();
+        cleanOut.connect(dest);
+        const ana = testCtx.createAnalyser();
+        ana.fftSize = 1024;
+        cleanOut.connect(ana);
+
+        const mime = pickSupportedRecorderMime('audio') || 'audio/webm';
+        const chunks = [];
+        const rec = new MediaRecorder(dest.stream, mime ? { mimeType: mime, audioBitsPerSecond: 160000 } : { audioBitsPerSecond: 160000 });
+        rec.ondataavailable = e => { if (e.data && e.data.size > 0) chunks.push(e.data); };
+
+        let maxPk = 0;
+        const rmsHist = [];
+        const floatBuf = new Float32Array(ana.fftSize);
+        const sampleTimer = setInterval(() => {
+          ana.getFloatTimeDomainData(floatBuf);
+          let sq = 0;
+          for (let i = 0; i < floatBuf.length; i++) {
+            const av = Math.abs(floatBuf[i]);
+            if (av > maxPk) maxPk = av;
+            sq += av * av;
+          }
+          rmsHist.push(Math.sqrt(sq / floatBuf.length));
+        }, 80);
+
+        rec.start(250);
+        for (let rem = 3.5; rem > 0.05; rem -= 0.5) {
+          if (statusEl) statusEl.innerText = `請說話測試中... 剩餘 ${rem.toFixed(1)} 秒（裝置：${devLabel}）`;
+          await new Promise(r => setTimeout(r, 500));
+        }
+        clearInterval(sampleTimer);
+
+        const testBlob = await new Promise(resolve => {
+          rec.onstop = () => resolve(new Blob(chunks, { type: rec.mimeType || mime || 'audio/webm' }));
+          rec.stop();
+        });
+
+        rmsHist.sort((a, b) => a - b);
+        const noiseFloor = rmsHist.length > 4 ? rmsHist[Math.floor(rmsHist.length * 0.15)] : 0.001;
+        const speechLevel = rmsHist.length > 4 ? rmsHist[Math.floor(rmsHist.length * 0.88)] : maxPk;
+        const snrDb = Math.round(20 * Math.log10(Math.max(0.0001, speechLevel) / Math.max(0.0001, noiseFloor)));
+        const peakPct = Math.min(100, Math.round(maxPk * 100));
+
+        let verdict = '';
+        if (maxPk < 0.015) {
+          verdict = `音量偏微弱（峰值僅 ${peakPct}%）：請確認「${devLabel}」是否為正確麥克風、或將上方「增益」調至 2.0x / 3.0x。`;
+        } else if (snrDb < 8) {
+          verdict = `環境底噪偏高（清晰信噪比約 ${snrDb} dB）：建議遠離出風口或檢查下方 MyASUS／Windows 音效設定。`;
+        } else {
+          verdict = `收音清晰良好（峰值 ${peakPct}% · 人聲信噪比 +${snrDb} dB · 裝置：${devLabel}）！請聽下方回放確認遠近聲音是否自然清楚：`;
+        }
+
+        if (_micTestBlobUrl) URL.revokeObjectURL(_micTestBlobUrl);
+        _micTestBlobUrl = URL.createObjectURL(testBlob);
+        if (metricsEl) metricsEl.innerText = verdict;
+        if (resBox) resBox.style.display = 'block';
+        if (playEl) {
+          playEl.src = _micTestBlobUrl;
+          playEl.play().catch(() => {});
+        }
+        if (statusEl) statusEl.innerText = '實測完成，正在自動回放您剛才錄下的真實音質';
+      } catch (err) {
+        if (statusEl) statusEl.innerText = '無法存取麥克風：' + (err.message || err);
+      } finally {
+        if (testStream) testStream.getTracks().forEach(t => { try { t.stop(); } catch (_) {} });
+        if (testCtx && testCtx.state !== 'closed') { try { testCtx.close(); } catch (_) {} }
+        if (btn) btn.disabled = false;
+        _isRunningMicSelfTest = false;
+      }
+    }
+    window.runQuickMicSelfTest = runQuickMicSelfTest;
 
     async function acquirePreferredMicStream(forScreenShare = false) {
       try {
@@ -10483,7 +10873,8 @@
         const micTrack = micStream.getAudioTracks()[0];
         activeMicLabel = (micTrack && micTrack.label) ? micTrack.label : '預設麥克風';
 
-        const gainVal = parseFloat(document.getElementById('micGainSelect').value || '1.0');
+        const gainVal = getEffectiveMicLinearGain();
+        const activeSceneMode = getActiveMicSceneMode();
         audioContext = preUnlockedCtx;
         if (audioContext.state === 'suspended') {
           try { await audioContext.resume(); } catch (e) {}
@@ -10493,35 +10884,20 @@
         activeMicSourceNode = micSource;
         gainNode = audioContext.createGain();
         gainNode.gain.value = gainVal;
-        if (typeof audioContext.createBiquadFilter === 'function') {
-          const hpFilter = audioContext.createBiquadFilter();
-          hpFilter.type = 'highpass';
-          hpFilter.frequency.value = 75;
-          hpFilter.Q.value = 0.707;
-          micSource.connect(hpFilter);
-          hpFilter.connect(gainNode);
-        } else {
-          micSource.connect(gainNode);
-        }
+        micSource.connect(gainNode);
 
-        // 防爆音軟限幅器（保護台語高音調、入聲與大聲說話不因 AGC 疊加而產生削波破音）
-        const limiterNode = audioContext.createDynamicsCompressor();
-        limiterNode.threshold.value = -2.0;
-        limiterNode.knee.value = 10.0;
-        limiterNode.ratio.value = 12.0;
-        limiterNode.attack.value = 0.003;
-        limiterNode.release.value = 0.15;
-        gainNode.connect(limiterNode);
+        // 純線性錄音室清晰人聲鏈（移除會自動偷拉高風扇底噪的 DynamicsCompressorNode，改用 85Hz 濾低頻 + 255Hz 去箱音 + 2.85kHz 清晰子音補償 + 零抽吸軟限幅）
+        const studioCleanOutNode = connectStudioSpeechClarityChain(audioContext, gainNode, activeSceneMode);
 
         analyserNode = audioContext.createAnalyser();
         analyserNode.fftSize = 256;
-        limiterNode.connect(analyserNode);
+        studioCleanOutNode.connect(analyserNode);
 
         mixedAudioDest = audioContext.createMediaStreamDestination();
-        limiterNode.connect(mixedAudioDest);
+        studioCleanOutNode.connect(mixedAudioDest);
 
         resetDirectPcmSessionBuffer(lockedSessionId);
-        setupPcmCapturePipeline(limiterNode);
+        setupPcmCapturePipeline(studioCleanOutNode);
 
         const localChunks = [];
         recordedChunks = localChunks;
@@ -10529,8 +10905,8 @@
         const pickedAudioMime = pickSupportedRecorderMime('audio');
         try {
           mediaRecorder = pickedAudioMime
-            ? new MediaRecorder(mixedAudioDest.stream, { mimeType: pickedAudioMime, audioBitsPerSecond: 96000 })
-            : new MediaRecorder(mixedAudioDest.stream, { audioBitsPerSecond: 96000 });
+            ? new MediaRecorder(mixedAudioDest.stream, { mimeType: pickedAudioMime, audioBitsPerSecond: 160000 })
+            : new MediaRecorder(mixedAudioDest.stream, { audioBitsPerSecond: 160000 });
         } catch (_) {
           mediaRecorder = pickedAudioMime
             ? new MediaRecorder(mixedAudioDest.stream, { mimeType: pickedAudioMime })
@@ -10657,7 +11033,8 @@
         const vMicTrack = micStream && micStream.getAudioTracks()[0];
         activeMicLabel = (vMicTrack && vMicTrack.label) ? vMicTrack.label : (micStream ? '預設麥克風' : '');
 
-        const gainVal = parseFloat(document.getElementById('micGainSelect').value || '1.0');
+        const gainVal = getEffectiveMicLinearGain();
+        const activeSceneMode = getActiveMicSceneMode();
         audioContext = preUnlockedCtx;
         if (audioContext.state === 'suspended') {
           try { await audioContext.resume(); } catch (e) {}
@@ -10667,13 +11044,7 @@
         const mixBus = audioContext.createGain();
         mixBus.gain.value = 1.0;
 
-        const limiterNode = audioContext.createDynamicsCompressor();
-        limiterNode.threshold.value = -2.0;
-        limiterNode.knee.value = 10.0;
-        limiterNode.ratio.value = 12.0;
-        limiterNode.attack.value = 0.003;
-        limiterNode.release.value = 0.15;
-        mixBus.connect(limiterNode);
+        const limiterNode = connectStudioSpeechClarityChain(audioContext, mixBus, activeSceneMode);
 
         analyserNode = audioContext.createAnalyser();
         analyserNode.fftSize = 256;
@@ -10732,9 +11103,9 @@
             ? new MediaRecorder(combinedStream, {
                 mimeType: pickedVideoMime,
                 videoBitsPerSecond: 750000,
-                audioBitsPerSecond: 96000
+                audioBitsPerSecond: 160000
               })
-            : new MediaRecorder(combinedStream, { videoBitsPerSecond: 750000, audioBitsPerSecond: 96000 });
+            : new MediaRecorder(combinedStream, { videoBitsPerSecond: 750000, audioBitsPerSecond: 160000 });
         } catch (_) {
           mediaRecorder = pickedVideoMime
             ? new MediaRecorder(combinedStream, { mimeType: pickedVideoMime })
@@ -11451,24 +11822,110 @@
       return { text, note };
     }
 
+    const TRANSCRIPT_SEGMENT_ITEM_SCHEMA = {
+      type: 'OBJECT',
+      properties: {
+        speaker: { type: 'STRING' },
+        voiceTrait: { type: 'STRING' },
+        startSec: { type: 'NUMBER' },
+        endSec: { type: 'NUMBER' },
+        spokenLang: { type: 'STRING', enum: ['mandarin', 'taiwanese', 'mixed', 'other'] },
+        text: { type: 'STRING' },
+        note: { type: 'STRING' },
+        translation: { type: 'STRING' }
+      },
+      required: ['speaker', 'startSec', 'endSec', 'spokenLang', 'text'],
+      propertyOrdering: ['speaker', 'voiceTrait', 'startSec', 'endSec', 'spokenLang', 'text', 'note', 'translation']
+    };
+
     const TRANSCRIPT_SEGMENT_ARRAY_SCHEMA = {
       type: 'ARRAY',
-      items: {
-        type: 'OBJECT',
-        properties: {
-          speaker: { type: 'STRING' },
-          voiceTrait: { type: 'STRING' },
-          startSec: { type: 'NUMBER' },
-          endSec: { type: 'NUMBER' },
-          spokenLang: { type: 'STRING', enum: ['mandarin', 'taiwanese', 'mixed', 'other'] },
-          text: { type: 'STRING' },
-          note: { type: 'STRING' },
-          translation: { type: 'STRING' }
-        },
-        required: ['speaker', 'startSec', 'endSec', 'spokenLang', 'text'],
-        propertyOrdering: ['speaker', 'voiceTrait', 'startSec', 'endSec', 'spokenLang', 'text', 'note', 'translation']
-      }
+      items: TRANSCRIPT_SEGMENT_ITEM_SCHEMA
     };
+
+    // 雙階段全觀聲紋盤點 Schema：強制模型先聽完全檔列出所有不同說話者（區分多位同性別男聲／女聲），再依聲紋卡精準對號入座！
+    const TRANSCRIPT_DIARIZATION_OBJECT_SCHEMA = {
+      type: 'OBJECT',
+      properties: {
+        totalSpeakerCount: { type: 'INTEGER' },
+        detectedSpeakers: {
+          type: 'ARRAY',
+          items: {
+            type: 'OBJECT',
+            properties: {
+              speaker: { type: 'STRING' },
+              gender: { type: 'STRING', enum: ['male', 'female', 'unknown'] },
+              voiceTrait: { type: 'STRING' }
+            },
+            required: ['speaker', 'gender', 'voiceTrait'],
+            propertyOrdering: ['speaker', 'gender', 'voiceTrait']
+          }
+        },
+        segments: {
+          type: 'ARRAY',
+          items: TRANSCRIPT_SEGMENT_ITEM_SCHEMA
+        }
+      },
+      required: ['totalSpeakerCount', 'detectedSpeakers', 'segments'],
+      propertyOrdering: ['totalSpeakerCount', 'detectedSpeakers', 'segments']
+    };
+
+    function parseDiarizedTranscriptPayload(rawText) {
+      const cleaned = String(rawText || '').replace(/```json|```/gi, '').trim();
+      const firstBrace = cleaned.indexOf('{');
+      const firstBracket = cleaned.indexOf('[');
+      if (firstBrace !== -1 && (firstBracket === -1 || firstBrace < firstBracket)) {
+        try {
+          const lastBrace = cleaned.lastIndexOf('}');
+          if (lastBrace > firstBrace) {
+            const obj = JSON.parse(cleaned.slice(firstBrace, lastBrace + 1));
+            if (obj && typeof obj === 'object' && !Array.isArray(obj)) {
+              const segs = Array.isArray(obj.segments) ? obj.segments : (Array.isArray(obj.items) ? obj.items : null);
+              if (segs) {
+                return {
+                  detectedSpeakers: Array.isArray(obj.detectedSpeakers) ? obj.detectedSpeakers : [],
+                  segments: segs
+                };
+              }
+            }
+          }
+        } catch (_) {
+          const segKeyIdx = cleaned.indexOf('"segments"');
+          if (segKeyIdx !== -1) {
+            const subArr = safeParseJsonFromAi(cleaned.slice(segKeyIdx), 'array');
+            return { detectedSpeakers: [], segments: Array.isArray(subArr) ? subArr : [] };
+          }
+        }
+      }
+      const fallbackSegs = safeParseJsonFromAi(cleaned, 'array');
+      return {
+        detectedSpeakers: [],
+        segments: Array.isArray(fallbackSegs) ? fallbackSegs : []
+      };
+    }
+
+    async function buildSpeakerReferenceWavPayload(registry) {
+      if (!Array.isArray(registry) || registry.length === 0) return null;
+      const withAudio = registry.filter(r => r && r.refPcm && r.refPcm.length >= 8000);
+      if (withAudio.length === 0) return null;
+      const sr = 16000;
+      const gap = new Float32Array(Math.floor(sr * 0.4));
+      const parts = [];
+      const labels = [];
+      let cursorSec = 0;
+      for (const r of withAudio) {
+        const dur = r.refPcm.length / sr;
+        const s0 = cursorSec.toFixed(1);
+        const s1 = (cursorSec + dur).toFixed(1);
+        labels.push(`${s0}s~${s1}s 為「${r.speakerName}」(${r.traitText || (r.gender === 'F' ? '女聲' : '男聲')})`);
+        parts.push(r.refPcm);
+        parts.push(gap);
+        cursorSec += dur + 0.4;
+      }
+      const wavBlob = encodeFloat32ChunksToWavBlob(parts, sr);
+      const b64 = await blobToBase64(wavBlob);
+      return { base64: b64, desc: labels.join('；') };
+    }
 
     // 強韌 AI JSON 解析器：支援去除前後寒暄文字、單句物件自動轉陣列、外層物件自動拆包，且當輸出達 Token 上限被截斷時自動救回所有已閉合之完整物件！
     function safeParseJsonFromAi(rawText, expectedType = 'array') {
@@ -11649,10 +12106,19 @@ ${speakerRule}
 5. ${biLang !== 'none' ? `請在 translation 欄位提供對應的「${biLang}」翻譯。` : 'translation 欄位請填空字串 ""。'}
 6. startSec 與 endSec 請填寫相對於本段音訊開頭（0 至 ${sliceSpanSec} 秒）的秒數，嚴格只輸出符合 Schema 的 JSON 陣列。`;
 
-        const rawResp = await callGeminiApi(PRIMARY_MODEL, [
+        // 配額隔離：在預設「智慧省額度(結束精修)」模式下，錄音中即時預覽改走輕量模型桶，100% 將最新主力 Gemini 3.x / Pro / Flash 配額留給結束後的單次全檔深層精修！
+        const liveUseLite = (mode === 'smart_post' && !forceFlush);
+        const livePrefModel = liveUseLite ? 'gemini-2.5-flash-lite' : null;
+        const rawResp = await callGeminiApi(livePrefModel, [
           { text: prompt },
           { inlineData: { mimeType: 'audio/wav', data: base64Wav } }
-        ], { jsonMode: true, responseSchema: TRANSCRIPT_SEGMENT_ARRAY_SCHEMA, thinkingBudget: 512, temperature: 0.1, highAccuracyAudio: true });
+        ], {
+          jsonMode: true,
+          responseSchema: TRANSCRIPT_SEGMENT_ARRAY_SCHEMA,
+          thinkingBudget: 512,
+          temperature: 0.1,
+          highAccuracyAudio: !liveUseLite
+        });
 
         const parsed = safeParseJsonFromAi(rawResp, 'array');
 
@@ -11844,13 +12310,29 @@ ${speakerRule}
         return new Blob([buffer], { type: 'audio/wav' });
       }
 
-      // 1.0 秒語句級前瞻平滑人聲均衡（Phrase-Level Lookahead AGC）：
-      // 同一句話內的子音（買/追、放/套）與母音維持完全相同的線性比例不失真，同時在換遠距小聲講者開口時平滑放大最高 8.5 倍！
-      const winSize = Math.max(3200, Math.floor(sampleRate * 0.60));
+      // 100ms 精準底噪探測 ＋ SNR 信噪比成比例智慧人聲均衡器（SNR-Proportional Speech Leveler）：
+      // 1. 以 100ms 細視窗精準量測句間自然換氣的真實環境底噪（noiseFloor），空檔與底噪維持 1.0x 絕不放大抽吸！
+      // 2. 針對高信噪比之遠距輕聲講者（如 2.5m 外 0.025 峰值），依真實信噪比平滑拉升至 ~0.42 清晰目標區（保留與近距講者 ~0.76 的自然空間層次供 AI 分出第 3~4 人，同時杜絕底噪轟鳴）！
+      const subWin = Math.max(800, Math.floor(sampleRate * 0.10));
+      const numSub = Math.ceil(totalLength / subWin);
+      const subRmsArr = [];
+      for (let k = 0; k < numSub; k++) {
+        const s0 = k * subWin;
+        const e0 = Math.min(totalLength, s0 + subWin);
+        let sq = 0;
+        for (let i = s0; i < e0; i++) sq += mono[i] * mono[i];
+        const r = Math.sqrt(sq / Math.max(1, e0 - s0));
+        if (r > 0.00002) subRmsArr.push(r);
+      }
+      subRmsArr.sort((a, b) => a - b);
+      const noiseFloor = subRmsArr.length > 4
+        ? Math.min(0.008, Math.max(0.00018, subRmsArr[Math.floor(subRmsArr.length * 0.15)]))
+        : 0.00035;
+
+      const winSize = Math.max(3200, Math.floor(sampleRate * 0.45));
       const numBlocks = Math.ceil(totalLength / winSize);
       const blockPeaks = new Float32Array(numBlocks);
       const blockRms = new Float32Array(numBlocks);
-      const rmsCopy = [];
 
       for (let b = 0; b < numBlocks; b++) {
         const start = b * winSize;
@@ -11862,32 +12344,28 @@ ${speakerRule}
           if (av > pk) pk = av;
           sq += av * av;
         }
-        const rms = Math.sqrt(sq / Math.max(1, end - start));
         blockPeaks[b] = pk;
-        blockRms[b] = rms;
-        if (rms > 0.00005) rmsCopy.push(rms);
+        blockRms[b] = Math.sqrt(sq / Math.max(1, end - start));
       }
-
-      rmsCopy.sort((a, b) => a - b);
-      const noiseFloor = rmsCopy.length > 3
-        ? Math.min(0.006, Math.max(0.00035, rmsCopy[Math.floor(rmsCopy.length * 0.15)]))
-        : 0.0005;
 
       const rawGains = new Float32Array(numBlocks);
       for (let b = 0; b < numBlocks; b++) {
         const pk = blockPeaks[b];
         const rms = blockRms[b];
-        if (pk > 0.0022 && rms > noiseFloor * 1.55) {
-          // 僅與相鄰「音量相近（3 倍以內）」之同講者語句共享包絡，保護句內子音/母音線性比例，同時不讓大聲講者壓抑下一句遠距小聲講者！
+        const snrRatio = rms / Math.max(0.0001, noiseFloor);
+        if (pk > 0.003 && snrRatio >= 2.8) {
           let phrasePeak = pk;
-          if (b > 0 && blockPeaks[b - 1] > 0.0022 && blockPeaks[b - 1] <= pk * 3.0) {
-            phrasePeak = Math.max(phrasePeak, blockPeaks[b - 1] * 0.9);
+          if (b > 0 && blockPeaks[b - 1] > 0.003 && blockPeaks[b - 1] <= pk * 2.8) {
+            phrasePeak = Math.max(phrasePeak, blockPeaks[b - 1] * 0.92);
           }
-          if (b + 1 < numBlocks && blockPeaks[b + 1] > 0.0022 && blockPeaks[b + 1] <= pk * 3.0) {
-            phrasePeak = Math.max(phrasePeak, blockPeaks[b + 1] * 0.9);
+          if (b + 1 < numBlocks && blockPeaks[b + 1] > 0.003 && blockPeaks[b + 1] <= pk * 2.8) {
+            phrasePeak = Math.max(phrasePeak, blockPeaks[b + 1] * 0.92);
           }
-          const desired = 0.70 / phrasePeak;
-          rawGains[b] = desired < 0.88 ? 0.88 : (desired > 9.2 ? 9.2 : desired);
+          // 近距大聲講者目標 0.74、遠距小聲講者目標 0.44（保留遠近音色層次），且最大放大倍率嚴格受真實 SNR 限制以杜絕放大雜訊！
+          const targetPeak = phrasePeak >= 0.18 ? 0.74 : 0.44;
+          const snrSafeMaxGain = Math.min(10.5, Math.max(1.2, snrRatio * 0.42));
+          const desired = targetPeak / phrasePeak;
+          rawGains[b] = desired < 0.88 ? 0.88 : (desired > snrSafeMaxGain ? snrSafeMaxGain : desired);
         } else {
           rawGains[b] = 1.0;
         }
@@ -11898,7 +12376,7 @@ ${speakerRule}
       for (let b = 1; b < numBlocks; b++) {
         const prev = smoothGains[b - 1];
         const target = rawGains[b];
-        const alpha = target > prev ? 0.68 : 0.45;
+        const alpha = target > prev ? 0.62 : 0.42;
         smoothGains[b] = prev + (target - prev) * alpha;
       }
       smoothGains[numBlocks] = smoothGains[numBlocks - 1];
@@ -11922,6 +12400,73 @@ ${speakerRule}
         }
       }
       return new Blob([buffer], { type: 'audio/wav' });
+    }
+
+    // 數位悶糊音救援濾波器（Direct-Form II 雙二次 Biquad 串聯）：
+    // 當重新分析既有悶糊錄音檔時，自動濾除 <90Hz 低頻轟鳴、衰減 255Hz 桌面箱音 (-3.0dB)，並提亮 2800Hz 國台語子音共振峰 (+3.5dB)！
+    function applyDigitalBiquadInPlace(samples, b0, b1, b2, a1, a2) {
+      let z1 = 0;
+      let z2 = 0;
+      for (let i = 0; i < samples.length; i++) {
+        const x = samples[i];
+        const y = b0 * x + z1;
+        z1 = b1 * x - a1 * y + z2;
+        z2 = b2 * x - a2 * y;
+        samples[i] = y;
+      }
+    }
+
+    function enhanceSpeechClarityOn16kPcm(rawSamples, sampleRate = 16000) {
+      if (!rawSamples || rawSamples.length < 320) return rawSamples;
+      const out = new Float32Array(rawSamples);
+      // 1. 90Hz 二階高通濾除冷氣與桌面低頻隆隆聲
+      {
+        const w0 = (2 * Math.PI * 90) / sampleRate;
+        const cosW = Math.cos(w0);
+        const alpha = Math.sin(w0) / (2 * 0.707);
+        const a0 = 1 + alpha;
+        applyDigitalBiquadInPlace(
+          out,
+          ((1 + cosW) * 0.5) / a0,
+          (-(1 + cosW)) / a0,
+          ((1 + cosW) * 0.5) / a0,
+          (-2 * cosW) / a0,
+          (1 - alpha) / a0
+        );
+      }
+      // 2. 255Hz -3.0dB Peaking 消除室內桌面反射悶糊箱音
+      {
+        const A = Math.pow(10, -3.0 / 40);
+        const w0 = (2 * Math.PI * 255) / sampleRate;
+        const cosW = Math.cos(w0);
+        const alpha = Math.sin(w0) / (2 * 1.1);
+        const a0 = 1 + alpha / A;
+        applyDigitalBiquadInPlace(
+          out,
+          (1 + alpha * A) / a0,
+          (-2 * cosW) / a0,
+          (1 - alpha * A) / a0,
+          (-2 * cosW) / a0,
+          (1 - alpha / A) / a0
+        );
+      }
+      // 3. 2800Hz +3.5dB Peaking 提亮國台語模糊子音（買/追、放/套、從/用）
+      {
+        const A = Math.pow(10, 3.5 / 40);
+        const w0 = (2 * Math.PI * 2800) / sampleRate;
+        const cosW = Math.cos(w0);
+        const alpha = Math.sin(w0) / (2 * 0.85);
+        const a0 = 1 + alpha / A;
+        applyDigitalBiquadInPlace(
+          out,
+          (1 + alpha * A) / a0,
+          (-2 * cosW) / a0,
+          (1 - alpha * A) / a0,
+          (-2 * cosW) / a0,
+          (1 - alpha / A) / a0
+        );
+      }
+      return out;
     }
 
     // 將單段側錄音訊包（<= 5 分鐘 Opus/MP4）即時解碼為標準 16kHz 抗混疊單聲道 WAV，解決 Gemini 直接吃分段 WebM 辨識率大幅劣化與報錯問題！
@@ -12028,7 +12573,8 @@ ${speakerRule}
           const sliceRatio = sliceLen > 0 ? (sliceActive / sliceLen) : 0;
           const startOffsetSec = Math.floor(startIdx / targetRate);
           const endOffsetSec = Math.ceil(endIdx / targetRate);
-          const wavBlob = encodeFloat32ChunksToWavBlob([slice], targetRate);
+          const clarifiedSlice = enhanceSpeechClarityOn16kPcm(slice, targetRate);
+          const wavBlob = encodeFloat32ChunksToWavBlob([clarifiedSlice], targetRate);
           chunks.push({
             wavBlob,
             _pcmSamples: slice,
@@ -12989,20 +13535,61 @@ ${speakerRule}
             showToast('此檔案音軌為完全靜音，請確認麥克風收音裝置');
             return;
           }
+          const effectiveChunkSec = (options && Number(options.maxChunkSec) > 10)
+            ? Number(options.maxChunkSec)
+            : MARATHON_CHUNK_SEC;
+          if (options && options.forceFreshDecode && Object.keys(manualSpeakerRenameMap || {}).length === 0) {
+            speakerList = ['講者 A', '講者 B'];
+            currentSpeaker = '講者 A';
+          }
+          // 若舊場次在 IndexedDB 被舊版切成多塊 60 秒碎片（如 03:48 被切成 4 塊），重分析時自動無縫拼回單一完整音軌，讓最新模型一次聽完全場分人！
+          let unifiedPrebuiltInput = prebuilt;
+          if (options && options.forceFreshDecode && prebuilt.length > 1 && prebuilt.every(c => c && c.wavBlob)) {
+            const decodedParts = [];
+            let stitchSr = 16000;
+            let totalStitchLen = 0;
+            for (const item of prebuilt) {
+              const dec = await decodeMonoWavBlobToFloat32(item.wavBlob);
+              if (dec && dec.samples && dec.samples.length > 0) {
+                stitchSr = dec.sampleRate || 16000;
+                decodedParts.push(dec.samples);
+                totalStitchLen += dec.samples.length;
+              }
+            }
+            if (decodedParts.length === prebuilt.length && totalStitchLen > 0) {
+              const mergedSamples = flattenFloat32Chunks(decodedParts);
+              unifiedPrebuiltInput = [{
+                wavBlob: prebuilt[0].wavBlob,
+                _stitchedSamples: mergedSamples,
+                _stitchedSr: stitchSr,
+                mimeType: 'audio/wav',
+                isLosslessDirectWav: true,
+                activeRatio: 0.25,
+                maxPeak: 0.5,
+                startOffsetSec: prebuilt[0].startOffsetSec || 0,
+                endOffsetSec: (prebuilt[0].startOffsetSec || 0) + Math.ceil(totalStitchLen / stitchSr)
+              }];
+            }
+          }
           const expandedPrebuilt = [];
-          for (const pc of prebuilt) {
+          for (const pc of unifiedPrebuiltInput) {
             const spanS = (pc.endOffsetSec || 0) - (pc.startOffsetSec || 0);
-            if (pc.wavBlob && (spanS > MARATHON_CHUNK_SEC + 20 || (options && options.forceFreshDecode))) {
-              const decodedWav = await decodeMonoWavBlobToFloat32(pc.wavBlob);
+            if ((pc._stitchedSamples || pc.wavBlob) && (spanS > effectiveChunkSec + 20 || (options && options.forceFreshDecode))) {
+              const decodedWav = pc._stitchedSamples
+                ? { samples: pc._stitchedSamples, sampleRate: pc._stitchedSr || 16000 }
+                : await decodeMonoWavBlobToFloat32(pc.wavBlob);
               if (decodedWav && decodedWav.samples.length > 0) {
                 const sr = decodedWav.sampleRate || 16000;
-                const totalSmp = decodedWav.samples.length;
-                const chunkSmp = MARATHON_CHUNK_SEC * sr;
-                const overlapSmp = 2 * sr;
+                const cleanSamples = (options && options.forceFreshDecode)
+                  ? enhanceSpeechClarityOn16kPcm(decodedWav.samples, sr)
+                  : decodedWav.samples;
+                const totalSmp = cleanSamples.length;
+                const chunkSmp = effectiveChunkSec * sr;
+                const overlapSmp = Math.min(6 * sr, Math.floor(chunkSmp * 0.1));
                 const strideSmp = totalSmp > chunkSmp ? Math.max(sr * 10, chunkSmp - overlapSmp) : chunkSmp;
                 for (let sPos = 0; sPos < totalSmp; sPos += strideSmp) {
                   const ePos = Math.min(totalSmp, sPos + chunkSmp);
-                  const subArr = decodedWav.samples.subarray(sPos, ePos);
+                  const subArr = cleanSamples.subarray(sPos, ePos);
                   let subPk = 0;
                   let subAct = 0;
                   for (let m = 0; m < subArr.length; m++) {
@@ -13030,8 +13617,15 @@ ${speakerRule}
           }
           audioChunks = expandedPrebuilt;
         } else {
+          const effectiveChunkSec2 = (options && Number(options.maxChunkSec) > 10)
+            ? Number(options.maxChunkSec)
+            : MARATHON_CHUNK_SEC;
+          if (options && options.forceFreshDecode && Object.keys(manualSpeakerRenameMap || {}).length === 0) {
+            speakerList = ['講者 A', '講者 B'];
+            currentSpeaker = '講者 A';
+          }
           try {
-            const extracted = await extractCleanWavChunksFromMediaBlob(blob, MARATHON_CHUNK_SEC);
+            const extracted = await extractCleanWavChunksFromMediaBlob(blob, effectiveChunkSec2);
             // 僅當全檔峰值低於 0.0001（完全數位零訊號）時才視為靜音，徹底解決筆電小聲收音被誤判為靜音而不呼叫 AI 的問題！
             if ((extracted.maxPeak || 0) < 0.0001 && extracted.totalActiveRatio < 0.0001) {
               if (currentSessionId === targetSessionId && transcriptSegments.length > 0) {
@@ -13122,42 +13716,70 @@ ${speakerRule}
             const base64Audio = await blobToBase64(wavReadyBlob);
             const nextRegLetter = String.fromCharCode(65 + Math.min(25, Math.max(1, chunkSpeakerRegistry.length)));
             const priorSpeakerHint = (diarMode === 'auto' && idx > 0 && chunkSpeakerRegistry.length > 0)
-              ? `\n【前段已註冊之講者聲紋名冊（共 ${chunkSpeakerRegistry.length} 人）】：${chunkSpeakerRegistry.map(r => `${r.speakerName}(${r.traitText || (r.gender === 'F' ? '女聲' : (r.gender === 'M' ? '男聲' : '未知音色'))}${r.pitchHz > 0 ? ', 約' + Math.round(r.pitchHz) + 'Hz' : ''})`).join('、')}。相同性別與音色請沿用該講者名稱；嚴禁把男女聲混標；若有新的聲音開口（第 ${chunkSpeakerRegistry.length + 1} 人、第 ${chunkSpeakerRegistry.length + 2} 人…），請立即新增「講者 ${nextRegLetter}」並依序遞增字母！`
+              ? `\n【前段已註冊之講者聲紋名冊（共 ${chunkSpeakerRegistry.length} 人）】：${chunkSpeakerRegistry.map(r => `${r.speakerName}(${r.traitText || (r.gender === 'F' ? '女聲' : (r.gender === 'M' ? '男聲' : '未知音色'))}${r.pitchHz > 0 ? ', 約' + Math.round(r.pitchHz) + 'Hz' : ''})`).join('、')}。\n- 注意：同一性別常有多位不同講者（例如 2~3 位不同男聲、2~3 位不同女聲）！唯有確定是「同一人的嗓音」才沿用舊代號；只要音色厚薄、基頻高低、語速節奏或麥克風遠近不同，即使同為男聲或同為女聲，也必須立即新增「講者 ${nextRegLetter}」並依序遞增代號！`
               : '';
             const prevTailSegs = idx > 0 ? accumulatedSegments.slice(-2) : [];
             const prevTailHint = prevTailSegs.length > 0
-              ? `\n【跨分段語境銜接參考（本段開頭前 2 秒與上一段結尾重疊，請避免重複輸出上一段最後已出現的相同重疊句）】：\n` +
+              ? `\n【跨分段語境銜接參考（本段開頭前 6 秒與上一段結尾重疊，請勿重複輸出已出現之重疊句）】：\n` +
                 prevTailSegs.map(ps => `- [${formatSec(ps.startSec)}] ${ps.speaker}(${ps.voiceTrait || ''})：${ps.text}`).join('\n')
               : '';
             const langInstruction = buildAudioLangPromptBlock(langMode);
             const chunkSpanSec = Math.max(1, (chunk.endOffsetSec || 60) - (chunk.startOffsetSec || 0));
             const diarizationPromptBlock = diarMode === 'manual'
               ? `【講者標記規範】：\n- 使用者已指定固定講者模式，請將所有段落的 speaker 統一標記為「${currentSpeaker}」。`
-              : `【高靈敏多講者聲紋與對話話輪分離（Multi-Speaker Diarization，人數無上限）】：
-- 這段音訊可能包含 2 人、3 人、4 人、5 人以上的多人現場或視訊對話（例如 2 男 2 女、3 男 1 女等），請務必同時結合「真實聲學音色」與「對話話輪轉換」分出每一位不同的說話者：
-  1. 聲學音色判準：仔細比對每句話的男女聲、基頻高低、胸腔與鼻腔共鳴音色（厚實、低沉、中頻溫和、清亮、高頻、沙啞）、語速節奏、以及距離麥克風的遠近空間感。
-  2. 對話話輪判準：當出現問答、接話、反駁、附和或重疊插話時，立即在換人瞬間切開時間軸！
-  3. 自動遞增講者（嚴禁偷懶只用 A/B 兩人輪流！）：若有 3 人、4 人或更多不同人說話，必須依出場順序完整標出「講者 A」、「講者 B」、「講者 C」、「講者 D」、「講者 E」…（或沿用前段名冊），並在 "voiceTrait" 如實描述你親耳聽到的該句聲音特徵（如「中頻男聲」、「中低男聲」、「中頻女聲」、「清亮女聲」），嚴禁照抄固定字樣或將女聲標在男聲講者名下！`;
+              : `【雙階段全觀多講者聲紋盤點與話輪分離（極重要！嚴禁把多位男聲或多女聲全部合併成 A/B 兩人！）】：
+- 第一步（先填寫 totalSpeakerCount 與 detectedSpeakers 聲紋名冊）：
+  請先從頭到尾完整聽過整段音訊，仔細盤點全場總共有幾位不同的說話者（常見為 3 人、4 人、5 人以上，例如「2 男 2 女」、「3 男 1 女」、「1 男 3 女」等）。
+  * 絕對禁止把所有男性聲音全歸為同一人，也絕對禁止把所有女性聲音全歸為同一人！
+  * 針對相同性別的不同講者，請同時比對 5 項真實聲學與對話特徵：
+    (1) 基頻音高差異（如：低沉男聲 vs 中頻男聲 vs 偏高男聲；低柔女聲 vs 中頻女聲 vs 清亮高頻女聲）；
+    (2) 共鳴與音質（胸腔渾厚、鼻音明顯、嗓音清脆、微沙啞、柔和溫潤）；
+    (3) 說話語速、斷句節奏與發語習慣；
+    (4) 距離麥克風的空間遠近與室內殘響比例（近距主講 vs 對座中距 vs 遠距插話）；
+    (5) 對話互動互斥邏輯：同一個人不會自己問「那最近怎麼辦？」又緊接著自己回答「那不然再買一個。」或自己附和自己！凡有一問一答、接話補充、反駁或重疊回應，務必仔細聽辨是否為第 3 位、第 4 位講者開口！
+  * 請依出場順序將每位獨立說話者編號為「講者 A」、「講者 B」、「講者 C」、「講者 D」、「講者 E」…，填入 detectedSpeakers。
+- 第二步（填寫 segments 逐句時間軸）：
+  * 每一句話必須精準對號入座標記其真實說話者的 speaker 代號（嚴禁懶惰用 A/B 機械輪流貼標！若同一人連講兩句請維持同一代號；若換第 3、第 4 人插話請立即標為 講者 C、講者 D）。
+  * 在 voiceTrait 如實寫出該位講者的嗓音與遠近特徵（如「中低沉穩男聲」、「中高語速快男聲」、「中頻溫和女聲」、「清亮遠距女聲」）。`;
 
-            const prompt = `請直接聆聽這段 16kHz 清晰音訊（長度約 ${chunkSpanSec} 秒），完整進行「多講者聲紋分離」並將每一句對話轉為時間軸逐字稿。${dictPrompt}${priorSpeakerHint}${prevTailHint}
+            const prompt = `請直接仔細聆聽這段 16kHz 會議錄音（長度約 ${chunkSpanSec} 秒），先完成全場「多講者真實人數與聲紋盤點」，再逐句精準對齊說話者與時間軸轉寫為逐字稿。${dictPrompt}${priorSpeakerHint}${prevTailHint}
 
 ${langInstruction}
 
 ${diarizationPromptBlock}
 
-【語意連貫性、子音精準聽辨與防跳針規則】：
-1. 請完整轉寫音訊中聽得見的每一句話（包含音量較小或距離較遠的講者發言、插話與短句回應），切勿跳過中間任何對話段落！僅在整段音訊完全無任何人說話時才回傳 []。
-2. 遠距收音子音與上下文語意校正：請務必結合前後文主題聽辨模糊子音與聲調，選擇符合台灣日常口語邏輯的詞彙（例如討論帶便當與家電時，仔細分辨「買一台微波爐 / 放到保溫便當盒」，切勿寫成「追一百微波爐 / 套到那個 / 電電電費」等語意不通的諧音錯字或結巴重複字）！
-3. 嚴格禁止捏造音訊中未出現的字詞（如「測試錄音」、「Hello」），且絕對禁止將同一句話或同一個短詞（如「微波爐的。」）連續重複輸出多次！
+【遠距／微悶收音之語意上下文精準推論與完整性規則】：
+1. 請從第 0 秒到第 ${chunkSpanSec} 秒完整轉寫每一句聽得見的對話（包含遠處插話、短句問答與附和），絕不可遺漏後半段對話！僅在完全無人說話時才回傳空 segments []。
+2. 遠距悶音之上下文語意校正：若現場收音略帶室內殘響或子音較悶，請務必利用整場對話前後文主題進行高階語意推論，還原最自然合理的台灣口語詞彙（例如討論帶便當加熱與家電時，應推論為「買一台微波爐／裝到保溫便當盒／用那個方法」，切勿輸出語意不通的同音錯字）！
+3. 嚴禁捏造音訊未出現的字詞，且嚴禁將同一句話連續重複輸出多次！
 4. ${biLang !== 'none' ? `請在 translation 欄位提供對應的「${biLang}」翻譯。` : 'translation 欄位請填空字串 ""。'}
-5. startSec 與 endSec 請填寫相對於本段音訊開頭（0 至 ${chunkSpanSec} 秒）的秒數，嚴格只輸出符合 Schema 的 JSON 陣列。`;
+5. startSec 與 endSec 請填寫相對於本段主音訊開頭（0 至 ${chunkSpanSec} 秒）的精確秒數，嚴格輸出符合 Schema 的 JSON 物件。`;
 
-            const textResp = await callGeminiApi(PRIMARY_MODEL, [
-              { text: prompt },
-              { inlineData: { mimeType: targetMime, data: base64Audio } }
-            ], { jsonMode: true, responseSchema: TRANSCRIPT_SEGMENT_ARRAY_SCHEMA, thinkingBudget: 1024, temperature: 0.12, highAccuracyAudio: true });
+            const reqParts = [];
+            if (diarMode === 'auto' && idx > 0 && chunkSpeakerRegistry.length > 0) {
+              try {
+                const refPayload = await buildSpeakerReferenceWavPayload(chunkSpeakerRegistry);
+                if (refPayload && refPayload.base64) {
+                  reqParts.push({ text: `【前段已出場講者之真實原音聲紋樣本】：以下短音檔依序為 ${refPayload.desc}。請先聽熟每個人真實嗓音，再聽下方本段主音訊進行精準配對（若有新嗓音請新增講者 ${nextRegLetter}…）：` });
+                  reqParts.push({ inlineData: { mimeType: 'audio/wav', data: refPayload.base64 } });
+                }
+              } catch (_) {}
+            }
+            reqParts.push({ text: prompt });
+            reqParts.push({ inlineData: { mimeType: targetMime, data: base64Audio } });
 
-            const parsed = safeParseJsonFromAi(textResp, 'array');
+            const textResp = await callGeminiApi(null, reqParts, {
+              jsonMode: true,
+              responseSchema: TRANSCRIPT_DIARIZATION_OBJECT_SCHEMA,
+              thinkingBudget: 4096,
+              deepDiarization: true,
+              maxOutputTokens: 32768,
+              temperature: 0.15,
+              highAccuracyAudio: true
+            });
+
+            const parsedBundle = parseDiarizedTranscriptPayload(textResp);
+            const parsed = parsedBundle.segments;
             if (Array.isArray(parsed)) {
               const rawValid = parsed.filter(item => {
                 if (!item || !item.text) return false;
@@ -13169,6 +13791,28 @@ ${diarizationPromptBlock}
 
               const stripPunct = s => String(s || '').replace(/[\s，,。！？!?、；;：:「」『』"'()（）]/g, '');
               const chunkSliceState = { labelKeyToSpeaker: new Map(), rawLabelToSpeaker: new Map() };
+
+              if (diarMode !== 'manual' && idx === 0 && Array.isArray(parsedBundle.detectedSpeakers) && parsedBundle.detectedSpeakers.length > 0) {
+                parsedBundle.detectedSpeakers.forEach(ds => {
+                  if (!ds || !ds.speaker) return;
+                  const normDs = normalizeRawSpeakerLabel(ds.speaker);
+                  if (chunkSliceState.rawLabelToSpeaker.has(normDs)) return;
+                  const gStr = String(ds.gender || '').toLowerCase();
+                  const sigDs = parseVoiceTraitSignature(ds.voiceTrait || '', null);
+                  const resolvedGender = gStr === 'female' ? 'F' : (gStr === 'male' ? 'M' : sigDs.gender);
+                  const spAlloc = allocateNextSpeakerInRegistry(chunkSpeakerRegistry, new Set(chunkSliceState.rawLabelToSpeaker.values()), normDs);
+                  chunkSpeakerRegistry.push({
+                    speakerName: spAlloc,
+                    gender: resolvedGender,
+                    register: sigDs.register,
+                    distance: sigDs.distance,
+                    traitText: String(ds.voiceTrait || '').trim(),
+                    pitchHz: 0,
+                    refPcm: null
+                  });
+                  chunkSliceState.rawLabelToSpeaker.set(normDs, spAlloc);
+                });
+              }
 
               valid.forEach(item => {
                 const relS = Math.max(0, Number(item.startSec) || 0);
@@ -13189,13 +13833,22 @@ ${diarizationPromptBlock}
                   const mappedBase = resolvedIdentity.speakerName;
                   sp = manualSpeakerRenameMap[mappedBase] || manualSpeakerRenameMap[item.speaker] || mappedBase;
                   vt = resolvedIdentity.voiceTrait || vt;
+
+                  const regEntry = chunkSpeakerRegistry.find(r => r.speakerName === mappedBase);
+                  if (regEntry && !regEntry.refPcm && chunkMonoSamples && (relE - relS) >= 1.4) {
+                    const sSample = Math.max(0, Math.floor(relS * chunkSampleRate));
+                    const eSample = Math.min(chunkMonoSamples.length, Math.floor(Math.min(relE, relS + 2.8) * chunkSampleRate));
+                    if (eSample - sSample >= Math.floor(chunkSampleRate * 1.2)) {
+                      regEntry.refPcm = chunkMonoSamples.slice(sSample, eSample);
+                    }
+                  }
                 }
                 const norm = normalizeTaiwaneseToMandarin(item.text, item.note, item.spokenLang);
                 const absStart = Math.round((chunk.startOffsetSec || 0) + relS);
                 const absEnd = Math.round((chunk.startOffsetSec || 0) + relE);
 
-                // 跨 10 分鐘切點 2 秒重疊區自動去重：若與上一段末尾時間高度重疊且字面高度重合，略過重複句
-                if (idx > 0 && (Number(item.startSec) || 0) <= 4 && accumulatedSegments.length > 0) {
+                // 跨 6 分鐘切點 6 秒重疊區自動去重：若與上一段末尾時間高度重疊且字面高度重合，略過重複句
+                if (idx > 0 && (Number(item.startSec) || 0) <= 8 && accumulatedSegments.length > 0) {
                   const cleanCur = stripPunct(norm.text);
                   const dupHit = accumulatedSegments.slice(-3).some(prevSeg => {
                     if (Math.abs((prevSeg.endSec || 0) - absStart) > 5 && Math.abs((prevSeg.startSec || 0) - absStart) > 4) return false;
@@ -13335,8 +13988,8 @@ ${diarizationPromptBlock}
             }
           });
           if (freshSpeakers.length > 0) {
-            const hostSp = getPrimaryHostSpeakerName();
-            speakerList = freshSpeakers.includes(hostSp) ? freshSpeakers : [hostSp, ...freshSpeakers];
+            speakerList = freshSpeakers.slice();
+            currentSpeaker = speakerList[0] || '講者 A';
           }
           aiSpeakerVoiceRegistry = chunkSpeakerRegistry.length > 0
             ? chunkSpeakerRegistry
@@ -13344,12 +13997,13 @@ ${diarizationPromptBlock}
           renderSpeakerPills();
           renderTranscript();
           saveCurrentSessionToDB();
+          const modelUsedLabel = lastSuccessfulGeminiModel || 'Gemini AI';
           if (statusHint) {
             statusHint.innerText = failedChunkCount > 0
-              ? `已完成分段精修（${audioChunks.length - failedChunkCount}/${audioChunks.length} 段雲端精修，其餘已本地保底校正）`
-              : '音訊聽譯與多講者分離完成。點擊任一段落即可同步跳轉播放原音或視訊畫面';
+              ? `已完成分段精修 [${modelUsedLabel}]（${audioChunks.length - failedChunkCount}/${audioChunks.length} 段雲端精修，共 ${freshSpeakers.length} 位講者）`
+              : `已完成原音精修 [${modelUsedLabel}]：共辨識出 ${freshSpeakers.length} 位講者、${transcriptSegments.length} 段對話（點擊講者標籤可改名）`;
           }
-          showToast(`原音校正完成（共 ${transcriptSegments.length} 段逐字稿，已保留所有手動修訂與講者設定）`);
+          showToast(`✓ 已由 ${modelUsedLabel} 完成聽譯（辨識出 ${freshSpeakers.length} 位講者、共 ${transcriptSegments.length} 段對話）`);
         } else {
           updateSessionInDB(targetSessionId, rec => {
             rec.transcriptSegments = accumulatedSegments;
@@ -14247,11 +14901,115 @@ ${retrieval.contextText}
       }
     }
 
-    // 免費版 15 RPM 滑動視窗保護池 ＋ 已退役 (404) 模型自動記憶池 ＋ 429 智慧冷卻重試
+    // 免費版 RPM 滑動視窗保護池 ＋ 已退役 (404) 模型自動記憶池 ＋ 動態偵測最新 Gemini 3.x / Pro / Flash 模型引擎
     const retiredGeminiModels = new Set();
     const recentGeminiCallTimestamps = [];
 
-    // 多重模型自動容錯輪詢池：支援最新 Gemini 2.5/3.x、x-goog-api-key 安全標頭、原生 JSON 結構化約束與 SSE 即時打字機串流
+    function parseModelGenerationScore(modelId) {
+      const m = String(modelId || '').toLowerCase();
+      const verMatch = m.match(/^gemini-(\d+(?:\.\d+)?)/);
+      const ver = verMatch ? parseFloat(verMatch[1]) : (m.includes('latest') ? 3.5 : 2.0);
+      const isLite = m.includes('lite');
+      const isPro = m.includes('-pro');
+      const isPreview = m.includes('preview') || m.includes('exp');
+      return { ver, isLite, isPro, isPreview };
+    }
+
+    function populateAudioModelSelectOptions(models) {
+      const sel = document.getElementById('audioModelSelect');
+      if (!sel) return;
+      const keepPref = selectedAudioModelPref || sel.value || 'auto_best';
+      const baseOpts = [
+        { val: 'auto_best', label: 'AI模型：自動最新 (Gemini 3.x)' },
+        { val: 'pro_first', label: 'AI模型：Pro 深層聲紋優先' }
+      ];
+      const seen = new Set(baseOpts.map(o => o.val));
+      const dynamicOpts = [];
+      (models || []).forEach(id => {
+        if (!seen.has(id)) {
+          seen.add(id);
+          dynamicOpts.push({ val: id, label: `AI模型：${id}` });
+        }
+      });
+      if (dynamicOpts.length === 0) {
+        ['gemini-2.5-pro', 'gemini-2.5-flash'].forEach(id => {
+          if (!seen.has(id)) dynamicOpts.push({ val: id, label: `AI模型：${id}` });
+        });
+      }
+      sel.innerHTML = [...baseOpts, ...dynamicOpts]
+        .map(o => `<option value="${escapeHtml(o.val)}"${o.val === keepPref ? ' selected' : ''}>${escapeHtml(o.label)}</option>`)
+        .join('');
+    }
+
+    async function discoverAvailableGeminiModels(apiKey) {
+      if (!apiKey) return [];
+      if (typeof window !== 'undefined' && typeof window.__NOVERA_CHUNK_PACE_MS === 'number' && !window.__NOVERA_FORCE_MODEL_DISCOVERY) {
+        return discoveredGeminiModels;
+      }
+      const keySig = apiKey.slice(0, 6) + ':' + apiKey.length;
+      if (discoveredGeminiModels.length > 0 && discoveredForKeyHash === keySig) {
+        return discoveredGeminiModels;
+      }
+      if (_discoverModelsPromise) return _discoverModelsPromise;
+
+      _discoverModelsPromise = (async () => {
+        const ctrl = typeof AbortController !== 'undefined' ? new AbortController() : null;
+        const tid = ctrl ? setTimeout(() => { try { ctrl.abort(); } catch (_) {} }, 5000) : null;
+        try {
+          const res = await fetch('https://generativelanguage.googleapis.com/v1beta/models?pageSize=100', {
+            method: 'GET',
+            headers: { 'x-goog-api-key': apiKey },
+            signal: ctrl ? ctrl.signal : undefined
+          });
+          if (tid) clearTimeout(tid);
+          if (!res || !res.ok) return discoveredGeminiModels;
+          const data = await res.json();
+          const list = Array.isArray(data?.models) ? data.models : [];
+          const excludedPattern = /(tts|imagen|image|embedding|aqa|veo|lyria|robotics|computer-use|learnlm|gemma|bison|vision|-live|transcribe|native-audio|audio-preview|thinking-exp)/i;
+          const validIds = [];
+          for (const item of list) {
+            const rawName = String(item?.name || '').replace(/^models\//, '').trim();
+            if (!rawName || !/^gemini-/i.test(rawName)) continue;
+            if (excludedPattern.test(rawName)) continue;
+            const methods = Array.isArray(item?.supportedGenerationMethods) ? item.supportedGenerationMethods : [];
+            if (methods.length > 0 && !methods.includes('generateContent')) continue;
+            const sc = parseModelGenerationScore(rawName);
+            if (sc.ver < 2.5 && !rawName.includes('latest')) continue;
+            validIds.push(rawName);
+          }
+          if (validIds.length > 0) {
+            validIds.sort((a, b) => {
+              const sa = parseModelGenerationScore(a);
+              const sb = parseModelGenerationScore(b);
+              if (sa.isLite !== sb.isLite) return sa.isLite ? 1 : -1;
+              if (Math.abs(sb.ver - sa.ver) > 0.01) return sb.ver - sa.ver;
+              if (sa.isPreview !== sb.isPreview) return sa.isPreview ? 1 : -1;
+              return 0;
+            });
+            discoveredGeminiModels = validIds;
+            discoveredForKeyHash = keySig;
+            populateAudioModelSelectOptions(validIds);
+          }
+        } catch (_) {
+          if (tid) clearTimeout(tid);
+        } finally {
+          _discoverModelsPromise = null;
+        }
+        return discoveredGeminiModels;
+      })();
+      return _discoverModelsPromise;
+    }
+
+    function extractNonThoughtTextFromParts(partsArr) {
+      if (!Array.isArray(partsArr) || partsArr.length === 0) return '';
+      const nonThought = partsArr
+        .filter(p => p && !p.thought && typeof p.text === 'string')
+        .map(p => p.text)
+        .join('');
+      if (nonThought) return nonThought;
+      return partsArr.map(p => (p && typeof p.text === 'string') ? p.text : '').join('');
+    }
+
     async function callGeminiApi(preferredModel, parts, options = {}) {
       const apiKey = getEffectiveGeminiKey();
       if (!apiKey) {
@@ -14260,9 +15018,12 @@ ${retrieval.contextText}
       const opts = (options && typeof options === 'object') ? options : {};
       const useStream = typeof opts.onStreamChunk === 'function';
       const hasMedia = parts.some(p => p && p.inlineData);
-      const perAttemptTimeoutMs = hasMedia ? 34000 : 24000;
+      const perAttemptTimeoutMs = opts.highAccuracyAudio ? 120000 : (hasMedia ? 45000 : 28000);
 
-      // 免費版 RPM 滑動視窗保護
+      if (opts.highAccuracyAudio) {
+        await discoverAvailableGeminiModels(apiKey);
+      }
+
       const nowTs = Date.now();
       while (recentGeminiCallTimestamps.length > 0 && (nowTs - recentGeminiCallTimestamps[0]) > 61000) {
         recentGeminiCallTimestamps.shift();
@@ -14272,25 +15033,54 @@ ${retrieval.contextText}
         await new Promise(r => setTimeout(r, waitRpmMs));
       }
 
-      // 高精準語音轉寫優先池：音訊聽譯優先鎖定完整聲學模型 (2.5-flash / flash-latest)，避免過早落入輕量版 lite 模型造成諧音錯字與跳針！
-      const basePool = opts.highAccuracyAudio
-        ? [
-            'gemini-2.5-flash',
-            'gemini-flash-latest',
-            'gemini-2.5-flash-lite',
-            'gemini-3.1-flash-lite-preview'
-          ]
-        : [
-            'gemini-2.5-flash',
-            'gemini-2.5-flash-lite',
-            'gemini-3.1-flash-lite-preview',
-            'gemini-flash-latest'
-          ];
-      const rawCandidates = preferredModel
-        ? [preferredModel, ...basePool.filter(m => m !== preferredModel)]
-        : basePool;
-      const activePool = rawCandidates.filter(m => !retiredGeminiModels.has(m));
-      const candidateModels = activePool.length > 0 ? activePool : rawCandidates;
+      let rawCandidates = [];
+      if (opts.highAccuracyAudio) {
+        const pref = selectedAudioModelPref || 'auto_best';
+        const discFullFlash = discoveredGeminiModels.filter(m => {
+          const sc = parseModelGenerationScore(m);
+          return !sc.isLite && !sc.isPro;
+        });
+        const discPro = discoveredGeminiModels.filter(m => {
+          const sc = parseModelGenerationScore(m);
+          return !sc.isLite && sc.isPro;
+        });
+        const discLite = discoveredGeminiModels.filter(m => parseModelGenerationScore(m).isLite);
+
+        const staticFullFlash = ['gemini-3.8-flash', 'gemini-3.6-flash', 'gemini-2.5-flash', 'gemini-flash-latest'];
+        const staticPro = ['gemini-2.5-pro'];
+        const staticLite = ['gemini-3.5-flash-lite', 'gemini-2.5-flash-lite'];
+
+        const fullFlashOrder = discFullFlash.length > 0 ? [...discFullFlash, ...staticFullFlash] : ['gemini-2.5-flash', 'gemini-flash-latest'];
+        const proOrder = discPro.length > 0 ? [...discPro, ...staticPro] : staticPro;
+        const liteOrder = discLite.length > 0 ? [...discLite, ...staticLite] : ['gemini-2.5-flash-lite'];
+
+        if (pref === 'pro_first') {
+          rawCandidates = [...proOrder, ...fullFlashOrder, ...liteOrder];
+        } else if (pref && pref !== 'auto_best') {
+          rawCandidates = [pref, ...fullFlashOrder, ...proOrder, ...liteOrder];
+        } else {
+          rawCandidates = [...fullFlashOrder, ...proOrder, ...liteOrder];
+        }
+        if (preferredModel) {
+          rawCandidates = [preferredModel, ...rawCandidates];
+        }
+      } else {
+        const basePool = [
+          'gemini-2.5-flash',
+          'gemini-2.5-flash-lite',
+          'gemini-flash-latest'
+        ];
+        rawCandidates = preferredModel
+          ? [preferredModel, ...basePool.filter(m => m !== preferredModel)]
+          : basePool;
+      }
+
+      const dedupedCandidates = [];
+      for (const m of rawCandidates) {
+        if (m && !dedupedCandidates.includes(m)) dedupedCandidates.push(m);
+      }
+      const activePool = dedupedCandidates.filter(m => !retiredGeminiModels.has(m));
+      const candidateModels = activePool.length > 0 ? activePool : dedupedCandidates;
 
       const genConfig = {
         temperature: typeof opts.temperature === 'number' ? opts.temperature : 0.0,
@@ -14301,24 +15091,38 @@ ${retrieval.contextText}
         if (opts.responseSchema) genConfig.responseSchema = opts.responseSchema;
       }
 
-      // 智慧定量思考預算：給予 2.5 模型適量思考 Token (512~1024)，兼顧 3~6 秒快速回應與「4+ 多語者聲紋推理＋國台語精準判別」品質！
       const desiredThinkingBudget = typeof opts.thinkingBudget === 'number'
         ? opts.thinkingBudget
         : ((hasMedia && opts.jsonMode) ? 512 : undefined);
 
       let lastError = null;
+      const nonLiteCandidates = candidateModels.filter(m => !parseModelGenerationScore(m).isLite);
+      const liteCandidates = candidateModels.filter(m => parseModelGenerationScore(m).isLite);
 
       for (let round = 0; round < 2; round++) {
         let sawRateLimit429 = false;
-        const roundModels = round === 0 ? candidateModels : candidateModels.filter(m => !retiredGeminiModels.has(m));
+        const roundModels = (opts.highAccuracyAudio && nonLiteCandidates.length > 0)
+          ? (round === 0
+              ? nonLiteCandidates.filter(m => !retiredGeminiModels.has(m))
+              : [...nonLiteCandidates.filter(m => !retiredGeminiModels.has(m)), ...liteCandidates.filter(m => !retiredGeminiModels.has(m))])
+          : (round === 0 ? candidateModels : candidateModels.filter(m => !retiredGeminiModels.has(m)));
+
         for (const model of roundModels) {
           const ctrl = typeof AbortController !== 'undefined' ? new AbortController() : null;
           const timerId = ctrl ? setTimeout(() => { try { ctrl.abort(); } catch (_) {} }, perAttemptTimeoutMs) : null;
           try {
             const modelGenConfig = { ...genConfig };
-            if (typeof desiredThinkingBudget === 'number' && /^gemini-(2\.5-flash$|flash-latest)/i.test(model)) {
-              modelGenConfig.thinkingConfig = { thinkingBudget: desiredThinkingBudget };
+            const sc = parseModelGenerationScore(model);
+            if (!sc.isLite) {
+              if (sc.ver >= 3.0 && !model.includes('flash-latest')) {
+                modelGenConfig.thinkingConfig = {
+                  thinkingLevel: opts.deepDiarization ? 'high' : 'low'
+                };
+              } else if (typeof desiredThinkingBudget === 'number' && /^gemini-(2\.5-(flash|pro)$|flash-latest)/i.test(model)) {
+                modelGenConfig.thinkingConfig = { thinkingBudget: desiredThinkingBudget };
+              }
             }
+
             const fetchOpts = {
               method: 'POST',
               headers: {
@@ -14335,22 +15139,33 @@ ${retrieval.contextText}
               ? `https://generativelanguage.googleapis.com/v1beta/models/${model}:streamGenerateContent?alt=sse`
               : `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`;
             let res = await fetch(endpoint, fetchOpts);
-            // 相容性保險：若特定模型版本不接受 thinkingConfig 或 responseSchema 回傳 400，立即移除進階欄位無縫重送
-            if (res.status === 400 && (modelGenConfig.thinkingConfig || modelGenConfig.responseSchema)) {
-              const fallbackGenCfg = { ...genConfig };
-              delete fallbackGenCfg.thinkingConfig;
-              delete fallbackGenCfg.responseSchema;
+            if (res.status === 400 && (modelGenConfig.thinkingConfig || modelGenConfig.maxOutputTokens > 8192)) {
+              const step1Cfg = { ...genConfig, maxOutputTokens: Math.min(genConfig.maxOutputTokens || 8192, 16384) };
+              delete step1Cfg.thinkingConfig;
               res = await fetch(endpoint, {
                 ...fetchOpts,
                 body: JSON.stringify({
                   contents: [{ parts }],
-                  generationConfig: fallbackGenCfg
+                  generationConfig: step1Cfg
+                })
+              });
+            }
+            if (res.status === 400 && modelGenConfig.responseSchema) {
+              const step2Cfg = { ...genConfig, maxOutputTokens: 8192 };
+              delete step2Cfg.thinkingConfig;
+              delete step2Cfg.responseSchema;
+              res = await fetch(endpoint, {
+                ...fetchOpts,
+                body: JSON.stringify({
+                  contents: [{ parts }],
+                  generationConfig: step2Cfg
                 })
               });
             }
             if (timerId) clearTimeout(timerId);
             if (res.ok) {
               apiCallCount++;
+              lastSuccessfulGeminiModel = model;
               recentGeminiCallTimestamps.push(Date.now());
               refreshApiKeyStatusBadge();
               const cType = String(res.headers?.get?.('content-type') || '').toLowerCase();
@@ -14373,7 +15188,7 @@ ${retrieval.contextText}
                     try {
                       const chunkObj = JSON.parse(jsonStr);
                       const chunkParts = chunkObj.candidates?.[0]?.content?.parts || [];
-                      const delta = chunkParts.map(p => p.text || '').join('');
+                      const delta = extractNonThoughtTextFromParts(chunkParts);
                       if (delta) {
                         fullStreamText += delta;
                         try { opts.onStreamChunk(delta, fullStreamText); } catch (_) {}
@@ -14384,7 +15199,7 @@ ${retrieval.contextText}
                 if (sseBuffer.trim().startsWith('data:')) {
                   try {
                     const chunkObj = JSON.parse(sseBuffer.trim().slice(5).trim());
-                    const delta = (chunkObj.candidates?.[0]?.content?.parts || []).map(p => p.text || '').join('');
+                    const delta = extractNonThoughtTextFromParts(chunkObj.candidates?.[0]?.content?.parts || []);
                     if (delta) {
                       fullStreamText += delta;
                       try { opts.onStreamChunk(delta, fullStreamText); } catch (_) {}
@@ -14395,8 +15210,8 @@ ${retrieval.contextText}
               } else {
                 const data = await res.json();
                 const text = Array.isArray(data)
-                  ? data.map(d => (d.candidates?.[0]?.content?.parts || []).map(p => p.text || '').join('')).join('')
-                  : data.candidates?.[0]?.content?.parts?.[0]?.text;
+                  ? data.map(d => extractNonThoughtTextFromParts(d.candidates?.[0]?.content?.parts || [])).join('')
+                  : extractNonThoughtTextFromParts(data.candidates?.[0]?.content?.parts || []);
                 if (text) {
                   if (useStream) {
                     try { opts.onStreamChunk(text, text); } catch (_) {}
@@ -17025,6 +17840,7 @@ ${segLines || '(無逐字稿，請依上方現有摘要決議整理)'}`;
         try { localStorage.removeItem('antigravity_gemini_key'); } catch (e) {}
       }
       refreshApiKeyStatusBadge();
+      if (k) { discoverAvailableGeminiModels(k).catch(() => {}); }
       const dictVal = (document.getElementById('customDictInput')?.value || '').trim();
       safeSetLocalStorage('yh_notta_custom_dict', dictVal);
       closeModal('settingsModal');
@@ -17033,7 +17849,8 @@ ${segLines || '(無逐字稿，請依上方現有摘要決議整理)'}`;
 
     function onMicGainChange() {
       const v = parseFloat(document.getElementById('micGainSelect').value || '1.0');
-      if (gainNode && gainNode.gain) gainNode.gain.value = v;
+      const eff = getEffectiveMicLinearGain();
+      if (gainNode && gainNode.gain) gainNode.gain.value = eff;
       showToast(`麥克風增益已調整為 ${v}x`);
     }
 
@@ -20018,6 +20835,13 @@ ${segLines || '(無逐字稿，請依上方現有摘要決議整理)'}`;
       // 先讀取瀏覽器 localStorage 中使用者自行登入之 Google 帳號與姓名，絕不寫死特定帳號
       initGoogleLoginGateOnBoot();
       refreshApiKeyStatusBadge();
+      const micSceneSel = document.getElementById('micSceneModeSelect');
+      if (micSceneSel && selectedMicSceneMode) micSceneSel.value = selectedMicSceneMode;
+      const audioMdlSel = document.getElementById('audioModelSelect');
+      if (audioMdlSel && selectedAudioModelPref) audioMdlSel.value = selectedAudioModelPref;
+      if (getEffectiveGeminiKey()) {
+        discoverAvailableGeminiModels(getEffectiveGeminiKey()).catch(() => {});
+      }
 
       renderSpeakerPills();
       renderChatMessages();
