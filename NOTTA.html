@@ -6475,12 +6475,12 @@
       </div>
 
       <div class="top-actions">
-        <div class="pill-select" title="收音場景模式：預設「多人會議原音」徹底關閉會把遠處講者當雜音抹除的單人通話降噪與回音閘門，消除水底悶糊音！">
+        <div class="pill-select" title="收音場景模式：預設採用與商用網頁版一致之「瀏覽器原生標準收音」（關閉單人回音截斷、保留原生 C++ 環境風扇降噪與平滑自動增益、零人工 EQ 變造）">
           <span>收音:</span>
           <select id="micSceneModeSelect" aria-label="麥克風收音場景模式" onchange="onMicSceneModeChange(this.value)">
-            <option value="room_clear" selected>多人會議原音(防悶糊·推薦)</option>
-            <option value="raw_pure">外接麥克風無損直通</option>
-            <option value="solo_denoise">單人近距抗噪</option>
+            <option value="room_clear" selected>原生標準收音(零變造·推薦)</option>
+            <option value="raw_pure">外接麥克風無損直通(全關處理)</option>
+            <option value="solo_denoise">單人通話強抗回音</option>
           </select>
         </div>
         <div class="pill-select" title="選擇電腦上的麥克風收音裝置（支援會議進行中即時切換）">
@@ -8014,9 +8014,9 @@
             chunkBlobs: Array.isArray(effChunks) ? effChunks.slice() : [],
             transcriptSegments: Array.isArray(transcriptSegments) ? transcriptSegments.map(s => ({ ...s })) : [],
             speakerList: Array.isArray(speakerList) ? [...speakerList] : ['講者 A', '講者 B'],
-            overview: document.getElementById('noteOverview')?.innerText || '',
-            decisions: document.getElementById('noteDecisions')?.innerText || '',
-            todos: document.getElementById('noteTodos')?.innerText || '',
+            overview: getNoteBoxCleanText('noteOverview'),
+            decisions: getNoteBoxCleanText('noteDecisions'),
+            todos: getNoteBoxCleanText('noteTodos'),
             elapsedSec: getEffectiveRecordingElapsedSec(),
             updatedAt: Date.now()
           };
@@ -8675,14 +8675,16 @@
     }
 
     function hasCustomMeetingNotes() {
-      const ov = (document.getElementById('noteOverview')?.innerText || '').trim();
-      const dec = (document.getElementById('noteDecisions')?.innerText || '').trim();
-      const td = (document.getElementById('noteTodos')?.innerText || '').trim();
+      const ov = getNoteBoxCleanText('noteOverview');
+      const dec = getNoteBoxCleanText('noteDecisions');
+      const td = getNoteBoxCleanText('noteTodos');
       const ovChanged = Boolean(ov) &&
         ov !== DEFAULT_NOTE_OVERVIEW_EMPTY &&
         ov !== DEFAULT_NOTE_OVERVIEW_ALT &&
         ov !== DEFAULT_NOTE_OVERVIEW_SHORT &&
-        !ov.startsWith('正在根據左側逐字稿');
+        !ov.startsWith('正在根據左側逐字稿') &&
+        !ov.startsWith('正在通讀全場') &&
+        !ov.startsWith('⚠️ 雲端 AI 會議紀錄生成未成功');
       const decChanged = Boolean(dec) && dec !== DEFAULT_NOTE_DECISIONS;
       const tdChanged = Boolean(td) && td !== DEFAULT_NOTE_TODOS;
       return ovChanged || decChanged || tdChanged;
@@ -8733,9 +8735,9 @@
         mindMapData: clonedMindMap,
         hasMedia: Boolean(currentMediaBlob),
         mediaType: currentMediaType,
-        overview: document.getElementById('noteOverview').innerText,
-        decisions: document.getElementById('noteDecisions').innerText,
-        todos: document.getElementById('noteTodos').innerText
+        overview: getNoteBoxCleanText('noteOverview'),
+        decisions: getNoteBoxCleanText('noteDecisions'),
+        todos: getNoteBoxCleanText('noteTodos')
       };
 
       // 隨時保持當前場次的最新完整快照（採用淺層物件複製取代 JSON 深拷貝，避免 20+ 張截圖 Base64 重複序列化）
@@ -8952,9 +8954,9 @@
       resetMediaElement(ap);
       resetMediaElement(vp);
       if (newMediaType === 'audio') toggleVideoStage(false);
-      document.getElementById('noteOverview').innerText = DEFAULT_NOTE_OVERVIEW_EMPTY;
-      document.getElementById('noteDecisions').innerText = DEFAULT_NOTE_DECISIONS;
-      document.getElementById('noteTodos').innerText = DEFAULT_NOTE_TODOS;
+      setNoteBoxCleanText('noteOverview', DEFAULT_NOTE_OVERVIEW_EMPTY);
+      setNoteBoxCleanText('noteDecisions', DEFAULT_NOTE_DECISIONS);
+      setNoteBoxCleanText('noteTodos', DEFAULT_NOTE_TODOS);
       const chatIn = document.getElementById('chatQueryInput');
       if (chatIn) chatIn.value = '';
       const searchIn = document.getElementById('searchTranscriptInput');
@@ -9150,9 +9152,9 @@
       resetMediaElement(ap);
       resetMediaElement(vp);
       toggleVideoStage(false);
-      document.getElementById('noteOverview').innerText = DEFAULT_NOTE_OVERVIEW_EMPTY;
-      document.getElementById('noteDecisions').innerText = DEFAULT_NOTE_DECISIONS;
-      document.getElementById('noteTodos').innerText = DEFAULT_NOTE_TODOS;
+      setNoteBoxCleanText('noteOverview', DEFAULT_NOTE_OVERVIEW_EMPTY);
+      setNoteBoxCleanText('noteDecisions', DEFAULT_NOTE_DECISIONS);
+      setNoteBoxCleanText('noteTodos', DEFAULT_NOTE_TODOS);
       const chatIn = document.getElementById('chatQueryInput');
       if (chatIn) chatIn.value = '';
       const searchIn = document.getElementById('searchTranscriptInput');
@@ -9273,12 +9275,12 @@
       currentMediaType = target.mediaType || 'audio';
       currentMediaBlob = target.mediaBlob || null;
 
-      const cleanOverview = (target.overview && !String(target.overview).startsWith('生成失敗'))
+      const cleanOverview = (target.overview && !String(target.overview).startsWith('生成失敗') && !String(target.overview).startsWith('⚠️ 雲端 AI 會議紀錄生成未成功'))
         ? target.overview
         : DEFAULT_NOTE_OVERVIEW_ALT;
-      document.getElementById('noteOverview').innerText = cleanOverview;
-      document.getElementById('noteDecisions').innerText = target.decisions || DEFAULT_NOTE_DECISIONS;
-      document.getElementById('noteTodos').innerText = target.todos || DEFAULT_NOTE_TODOS;
+      setNoteBoxCleanText('noteOverview', cleanOverview);
+      setNoteBoxCleanText('noteDecisions', target.decisions || DEFAULT_NOTE_DECISIONS);
+      setNoteBoxCleanText('noteTodos', target.todos || DEFAULT_NOTE_TODOS);
 
       const searchIn = document.getElementById('searchTranscriptInput');
       if (searchIn) searchIn.value = '';
@@ -10506,31 +10508,38 @@
     }
 
     function getEffectiveMicLinearGain() {
-      const rawVal = parseFloat(document.getElementById('micGainSelect')?.value || '1.0') || 1.0;
-      const mode = getActiveMicSceneMode();
-      // 在關閉瀏覽器失真 AGC 的「多人會議原音」模式下，賦予純線性 1.45x 錄音室前級補償，確保中遠距說話清晰響亮且不破音！
-      return mode === 'room_clear' ? Number((rawVal * 1.45).toFixed(3)) : rawVal;
+      return parseFloat(document.getElementById('micGainSelect')?.value || '1.0') || 1.0;
     }
 
     function buildMicAudioConstraints(deviceIdOverride, forScreenShare = false) {
       const devId = (deviceIdOverride !== undefined ? deviceIdOverride : selectedMicDeviceId) || '';
       const sceneMode = getActiveMicSceneMode();
-      const isSoloDenoise = (sceneMode === 'solo_denoise');
-      const base = isSoloDenoise
-        ? {
-            echoCancellation: true,
-            autoGainControl: true,
-            noiseSuppression: true,
-            channelCount: 1
-          }
-        : {
-            echoCancellation: Boolean(forScreenShare),
-            autoGainControl: false,
-            noiseSuppression: false,
-            sampleRate: { ideal: 48000 },
-            sampleSize: { ideal: 16 },
-            channelCount: { ideal: 1 }
-          };
+      let base;
+      if (sceneMode === 'raw_pure') {
+        base = {
+          echoCancellation: Boolean(forScreenShare),
+          autoGainControl: false,
+          noiseSuppression: false,
+          sampleRate: { ideal: 48000 },
+          channelCount: { ideal: 1 }
+        };
+      } else if (sceneMode === 'solo_denoise') {
+        base = {
+          echoCancellation: true,
+          autoGainControl: true,
+          noiseSuppression: true,
+          channelCount: 1
+        };
+      } else {
+        // 預設採用與商用 Notta 網頁版一致之 Chrome 原生 C++ WebRTC 標準收音：
+        // 關閉 echoCancellation 避免多人插話被當回音切斷，保留原生 C++ 抗冷氣風扇底噪與平滑自動音量，不做多餘人工變造！
+        base = {
+          echoCancellation: Boolean(forScreenShare),
+          autoGainControl: true,
+          noiseSuppression: true,
+          channelCount: 1
+        };
+      }
       if (devId) base.deviceId = { exact: devId };
       return base;
     }
@@ -10555,55 +10564,9 @@
       return curve;
     }
 
-    // 建立錄音室級純線性清晰人聲濾波鏈（零閘門吞字、零水底音、消除桌面低頻箱音並強化 2.8kHz 國台語子音咬字）
+    // 保持 100% 純淨無染色直通（移除會把室內空間殘響與高頻底噪一併放大的手工 4 段 EQ 變造，回歸前幾天乾淨自然的原生收音！）
     function connectStudioSpeechClarityChain(ctx, inputNode, sceneMode) {
-      let tail = inputNode;
-      if (typeof ctx.createBiquadFilter === 'function') {
-        if (sceneMode === 'room_clear') {
-          const hp = ctx.createBiquadFilter();
-          hp.type = 'highpass';
-          hp.frequency.value = 85;
-          hp.Q.value = 0.707;
-
-          const deMud = ctx.createBiquadFilter();
-          deMud.type = 'peaking';
-          deMud.frequency.value = 255;
-          deMud.Q.value = 1.1;
-          deMud.gain.value = -2.5;
-
-          const presence = ctx.createBiquadFilter();
-          presence.type = 'peaking';
-          presence.frequency.value = 2850;
-          presence.Q.value = 0.85;
-          presence.gain.value = 3.2;
-
-          const lp = ctx.createBiquadFilter();
-          lp.type = 'lowpass';
-          lp.frequency.value = 7800;
-          lp.Q.value = 0.707;
-
-          tail.connect(hp);
-          hp.connect(deMud);
-          deMud.connect(presence);
-          presence.connect(lp);
-          tail = lp;
-        } else {
-          const hp = ctx.createBiquadFilter();
-          hp.type = 'highpass';
-          hp.frequency.value = 70;
-          hp.Q.value = 0.707;
-          tail.connect(hp);
-          tail = hp;
-        }
-      }
-      if (typeof ctx.createWaveShaper === 'function') {
-        const ceilingNode = ctx.createWaveShaper();
-        ceilingNode.curve = getZeroPumpCeilingCurve();
-        ceilingNode.oversample = '2x';
-        tail.connect(ceilingNode);
-        tail = ceilingNode;
-      }
-      return tail;
+      return inputNode;
     }
 
     async function onMicSceneModeChange(newMode) {
@@ -12056,7 +12019,7 @@
      ※ 絕對禁止將純國語句子複製貼上成「[台語原音] ...」！
      ※ 絕對禁止把說話者明明講國語的「他、不用、家裡、說、都」擅自逆向改寫成台語漢字「伊、毋免、厝裡、講、攏」！
   2. 【真實台語或國台語穿插句子】：唯有當說話者在音訊中「確實以台語音韻（七聲八調、鼻化韻、入聲或明確台語詞彙）」發音時，"spokenLang" 才填 "taiwanese" 或 "mixed"，並在 "text" 寫通順的台灣標準中文白話文意譯（勿殘留毋知、會使、這馬、佇咧、啥物、明仔載等台語字），同時在 "note" 標註「[台語原音] 實際聽到的台語原話」。
-- 常見台語與工程實務詞彙聽辨參考（嚴禁寫成毫無邏輯的國語同音亂碼字！）：估價(koo-kè，勿誤寫高檢)、出工/出料(tshut-kang/tshut-liāu，勿誤寫出港/出拉)、角落(kak-lo̍h，勿誤寫卡落)、眉角(mê-kak)、大家講講(kóng-kóng，勿誤寫開幹公公)、愛開外濟(要花多少錢，勿誤寫愛開哇幾)、袂使(不行，勿誤寫袂賽)、真累(tsin luī，勿誤寫真壘)、聽無(聽不懂)、毋知影(不知道)、按怎(怎麼)、按呢(這樣)、敢會使(可以嗎)、袂赴(來不及)、這馬(現在)、拄仔(剛才)、明仔載(明天)。
+- 常見台灣口語與台語音韻聽辨原則：遇到常見台語詞彙（如：毋知影/不知道、按怎/怎麼、按呢/這樣、敢會使/可以嗎、袂使/不行、袂赴/來不及、這馬/現在、拄仔/剛才、明仔載/明天、眉角/訣竅）請依台語發音與上下文正確理解，切勿硬湊成語意不通的國語同音錯字！
 - 【防亂碼鐵律】：若遠距收音某幾秒真的嚴重悶糊聽不清楚，請標註「（部分收音模糊）」或僅轉寫聽得清楚的字句，絕對禁止硬湊語意不通的同音亂碼詞！`;
     }
 
@@ -12135,7 +12098,7 @@ ${speakerRule}
 
 【語意連貫性、子音精準聽辨與防跳針規則】：
 1. 請完整轉寫音訊中聽得見的每一句對話（包含距離麥克風較遠、音量較輕的講者發言與短句回應），切勿跳過或漏掉段落！僅在整段音訊完全無任何人說話（純靜音或純雜音）時才回傳 []。
-2. 遠距收音子音校正：請務必結合前後文語意聽辨子音與聲調，選擇符合台灣日常對話邏輯的正確詞彙（例如討論便當與家電時，應聽辨為「買一台微波爐 / 放到保溫便當盒」，切勿輸出「追一百微波爐 / 套到那個」等無意義同音錯字或結巴贅字）！
+2. 遠距收音子音校正：請務必結合前後文討論主題與語意邏輯聽辨子音與聲調，選擇符合台灣自然口語邏輯的正確詞彙，切勿輸出毫無語意關聯的同音錯字或結巴贅字！
 3. 嚴格禁止捏造音訊中未出現的字詞（如「測試錄音」、「Hello」），且絕對禁止將同一句話或同一個短詞連續重複輸出多次！
 4. voiceTrait 請如實填寫你親耳聽到的該句嗓音特徵（例如：「中頻男聲」、「中低厚實男聲」、「中頻溫和女聲」、「清亮高頻女聲」、「遠距男聲」等），切勿套用固定範本！
 5. ${biLang !== 'none' ? `請在 translation 欄位提供對應的「${biLang}」翻譯。` : 'translation 欄位請填空字串 ""。'}
@@ -13813,7 +13776,7 @@ ${speakerRule}
     (2) 共鳴與音質（胸腔渾厚、鼻音明顯、嗓音清脆、微沙啞、柔和溫潤）；
     (3) 說話語速、斷句節奏與發語習慣；
     (4) 距離麥克風的空間遠近與室內殘響比例（近距主講 vs 對座中距 vs 遠距插話）；
-    (5) 對話互動互斥邏輯：同一個人不會自己問「那最近怎麼辦？」又緊接著自己回答「那不然再買一個。」或自己附和自己！凡有一問一答、接話補充、反駁或重疊回應，務必仔細聽辨是否為第 3 位、第 4 位講者開口！
+    (5) 對話互動互斥邏輯：同一個人通常不會自己提出疑問又緊接著用不同語氣回答自己或附和自己！凡有一問一答、接話補充、反駁或重疊回應，務必仔細聽辨是否為第 3 位、第 4 位講者開口！
   * 請依出場順序將每位獨立說話者編號為「講者 A」、「講者 B」、「講者 C」、「講者 D」、「講者 E」…，填入 detectedSpeakers。
 - 第二步（填寫 segments 逐句時間軸）：
   * 每一句話必須精準對號入座標記其真實說話者的 speaker 代號（嚴禁懶惰用 A/B 機械輪流貼標！若同一人連講兩句請維持同一代號；若換第 3、第 4 人插話請立即標為 講者 C、講者 D）。
@@ -13827,7 +13790,7 @@ ${diarizationPromptBlock}
 
 【遠距／微悶收音之語意上下文精準推論與完整性規則】：
 1. 請從第 0 秒到第 ${chunkSpanSec} 秒完整轉寫每一句聽得見的對話（包含遠處插話、短句問答與附和），絕不可遺漏後半段對話！僅在完全無人說話時才回傳空 segments []。
-2. 遠距悶音之上下文語意校正：若現場收音略帶室內殘響或子音較悶，請務必利用整場對話前後文主題進行高階語意推論，還原最自然合理的台灣口語詞彙（例如討論帶便當加熱與家電時，應推論為「買一台微波爐／裝到保溫便當盒／用那個方法」，切勿輸出語意不通的同音錯字）！
+2. 遠距悶音之上下文語意校正：若現場收音略帶室內殘響或子音較悶，請務必利用整場對話前後文主題進行高階語意推論，還原最自然合理的台灣口語與專業詞彙，切勿輸出語意不通的同音錯字！
 3. 嚴禁捏造音訊未出現的字詞，且嚴禁將同一句話連續重複輸出多次！
 4. ${biLang !== 'none' ? `請在 translation 欄位提供對應的「${biLang}」翻譯。` : 'translation 欄位請填空字串 ""。'}
 5. startSec 與 endSec 請填寫相對於本段主音訊開頭（0 至 ${chunkSpanSec} 秒）的精確秒數，嚴格輸出符合 Schema 的 JSON 物件。`;
@@ -14337,6 +14300,101 @@ ${diarizationPromptBlock}
       return String(val).trim() || fallbackStr;
     }
 
+    const MEETING_NOTES_STRUCTURED_SCHEMA = {
+      type: 'OBJECT',
+      properties: {
+        overviewTopics: {
+          type: 'ARRAY',
+          items: {
+            type: 'OBJECT',
+            properties: {
+              topic: { type: 'STRING' },
+              points: { type: 'ARRAY', items: { type: 'STRING' } }
+            },
+            required: ['topic', 'points'],
+            propertyOrdering: ['topic', 'points']
+          }
+        },
+        decisions: {
+          type: 'ARRAY',
+          items: { type: 'STRING' }
+        },
+        todos: {
+          type: 'ARRAY',
+          items: {
+            type: 'OBJECT',
+            properties: {
+              owner: { type: 'STRING' },
+              task: { type: 'STRING' },
+              due: { type: 'STRING' },
+              timeRef: { type: 'STRING' }
+            },
+            required: ['owner', 'task', 'due', 'timeRef'],
+            propertyOrdering: ['owner', 'task', 'due', 'timeRef']
+          }
+        }
+      },
+      required: ['overviewTopics', 'decisions', 'todos'],
+      propertyOrdering: ['overviewTopics', 'decisions', 'todos']
+    };
+
+    function extractCleanTextFromNode(rootEl) {
+      if (!rootEl) return '';
+      if (!rootEl.children || rootEl.children.length === 0) {
+        return String(rootEl.textContent || '').replace(/\r\n/g, '\n');
+      }
+      let out = '';
+      const BLOCK_TAGS = new Set(['DIV', 'P', 'LI', 'UL', 'OL', 'SECTION', 'ARTICLE', 'BLOCKQUOTE', 'PRE', 'H1', 'H2', 'H3', 'H4', 'H5', 'H6', 'TR']);
+      function walk(node) {
+        if (!node) return;
+        if (node.nodeType === 3) {
+          out += String(node.nodeValue || '').replace(/\r\n/g, '\n');
+          return;
+        }
+        if (node.nodeType !== 1) return;
+        const tag = String(node.tagName || '').toUpperCase();
+        if (tag === 'BR') {
+          out += '\n';
+          return;
+        }
+        const isBlock = BLOCK_TAGS.has(tag);
+        if (isBlock && out.length > 0 && !out.endsWith('\n')) {
+          out += '\n';
+        }
+        if (isBlock && node.childNodes.length === 1 && node.firstChild && String(node.firstChild.tagName || '').toUpperCase() === 'BR') {
+          out += '\n';
+          return;
+        }
+        const kids = node.childNodes;
+        for (let i = 0; i < kids.length; i++) {
+          walk(kids[i]);
+        }
+        if (isBlock && !out.endsWith('\n')) {
+          out += '\n';
+        }
+      }
+      const topKids = rootEl.childNodes;
+      for (let i = 0; i < topKids.length; i++) {
+        walk(topKids[i]);
+      }
+      return out.replace(/\n{3,}/g, '\n\n');
+    }
+
+    function getNoteBoxCleanText(elId) {
+      const el = document.getElementById(elId);
+      if (!el) return '';
+      return extractCleanTextFromNode(el).trim();
+    }
+
+    function setNoteBoxCleanText(elId, textStr) {
+      const el = document.getElementById(elId);
+      if (!el) return;
+      // 使用 textContent 搭配 CSS white-space: pre-wrap，確保即使在隱藏分頁或 3D 艙切換時換行符號 \n 也 100% 不會被壓成同一行！
+      el.textContent = String(textStr || '').replace(/\r\n/g, '\n').trim();
+    }
+    window.getNoteBoxCleanText = getNoteBoxCleanText;
+    window.setNoteBoxCleanText = setNoteBoxCleanText;
+
     async function generateAiMeetingNotes() {
       if (isGeneratingNotes) {
         showToast('結構化會議紀錄正在整理中，請稍候...');
@@ -14346,62 +14404,105 @@ ${diarizationPromptBlock}
         showToast('左側尚無逐字稿內容，請先錄音、錄影、匯入音檔或輸入紀錄');
         return;
       }
+      if (!getEffectiveGeminiKey()) {
+        showToast('請先點擊右上角「設定 AI 金鑰」，才能由 AI 提煉結構化會議紀錄');
+        if (typeof openSettingsModal === 'function') openSettingsModal();
+        return;
+      }
 
       isGeneratingNotes = true;
       const genBtn = document.getElementById('btnGenerateNotes');
-      if (genBtn) genBtn.disabled = true;
+      if (genBtn) {
+        genBtn.disabled = true;
+        genBtn.innerText = 'AI 提煉重點中...';
+      }
       const targetSessionId = currentSessionId;
-      const segsSnapshot = transcriptSegments.map(s => ({ ...s }));
+      const prevOv = document.getElementById('noteOverview')?.textContent || '';
+      const segsSnapshot = transcriptSegments.filter(s => s && String(s.text || '').trim());
 
-      document.getElementById('noteOverview').innerText = '正在根據左側逐字稿分析整理結構化會議紀錄...';
+      setNoteBoxCleanText('noteOverview', `正在通讀全場 ${segsSnapshot.length} 段發言，過濾閒聊廢話並依議題提煉核心重點與關鍵數據（約需 15～35 秒）...`);
       const tpl = document.getElementById('summaryTemplateSelect').value;
       const customDict = (document.getElementById('customDictInput')?.value || '').trim();
       const dialog = buildCompactDialogForPrompt(segsSnapshot, 110000);
 
       const tplPrompts = {
-        standard: '請以「標準商務會議」格式整理核心討論重點、達成決議與後續待辦事項。',
-        engineering: '請以「公共工程協調／專案管考會議」專業格式整理：overview 拆解「施工／專案進度摘要」與「跨單位介面協調議題」；decisions 條列具體「工程核定決議、規範確認與查核數據」；todos 每一列請嚴格依「• 權責單位：XXX｜辦理與限期改善事項（預計完成期限：YYYY-MM-DD 或具體期限） [MM:SS]」格式輸出，以便直接匯入 Excel 管考追蹤表。',
-        concise: '請以「極簡條列重點」格式整理關鍵結論與待辦事項。',
-        interview: '請以「訪談與問答紀要」格式整理雙方討論議題、回應重點與後續行動。'
+        standard: '請以「高階主管商務與專業會議紀要」標準整理：依實際討論議題分群濃縮核心重點、具體數據條件與後續待辦。',
+        engineering: '請以「工程協調與專案管考會議」專業標準整理：overviewTopics 依實際討論之工程／法規／設計／進度／介面等議題分群；decisions 完整條列所有具體量化指標、尺寸規格、比例、金額、法規條件與核定結論；todos 明確列出權責人員或單位、辦理事項與期限。',
+        concise: '請以「極簡決策重點」格式去蕪存菁，僅保留最核心結論、關鍵數字與行動清單。',
+        interview: '請以「顧問訪談與專業諮詢紀要」格式，依實際討論主題整理提問核心、專業解答數據與後續行動。'
       };
 
-      const prompt = `你是專業會議記錄秘書。請嚴格根據以下真實會議逐字稿（絕不可捏造逐字稿未提及之內容），產出結構化會議紀錄。
+      const prompt = `你是頂尖的專業會議記錄總編輯。請通讀以下整場會議逐字稿（共 ${segsSnapshot.length} 段，務必從開頭讀到最後一分鐘，不可只看前段！），去蕪存菁產出真正專業的「結構化會議紀錄」。
+
+【嚴格編輯鐵律（違反任一條即為不合格）】：
+1. 絕對禁止原封不動照抄口語對話！必須根據逐字稿實際內容，改寫為精煉、專業、通順的正式書面中文。
+2. 100% 徹底剔除所有廢話與雜訊：凡屬會議前後測試設備、傳檔連線操作、閒聊寒暄、單純口頭附和（「好好好、OK、對對對、沒問題、那個」），以及少數語音辨識明顯不通順的碎句，一律完全過濾掉，絕不可放進會議紀錄！
+3. 「overviewTopics（一、會議核心摘要）」：請根據逐字稿實際討論內容，自動歸納為 2～6 個明確的【議題主題】（topic 請直接依該場真實討論事項命名），每個主題下用 2～5 條精準重點（points）濃縮討論脈絡與重點結論。
+4. 「decisions（二、重要決議與關鍵數據）」：請專門萃取逐字稿中實際出現的【所有具體數字、規格尺寸、比例、金額預算、時程日期、條件門檻與達成共識之結論】，每一條寫成清楚完整的重點並附上對應時間碼（格式如：「具體結論與關鍵數據說明 [MM:SS]」）。絕對禁止把單純口語應答當成決議！
+5. 「todos（三、待辦事項與責任分工）」：僅列出會議中明確需要後續查證、試算、提供資料、報價或跟進的具體任務（若未指明期限，due 填「待確認」）。
+6. 嚴守 100% 真實性：所有主題、數字與結論必須完全來自下方逐字稿本身，嚴禁自行捏造逐字稿未提及的任何內容或數據。
+
 範本要求：${tplPrompts[tpl] || tplPrompts.standard}
 ${customDict ? '自訂詞庫參考：' + customDict : ''}
 
-會議逐字稿：
-${dialog}
-
-請嚴格只輸出 JSON 格式（不要 markdown 語法）：
-{
-  "overview": "條列式會議核心摘要",
-  "decisions": "重要決議事項與關鍵數據",
-  "todos": "待辦事項清單（標明負責人／權責單位、事項與預計完成期限）"
-}`;
+完整會議逐字稿：
+${dialog}`;
 
       try {
-        const raw = await callGeminiApi(PRIMARY_MODEL, [{ text: prompt }], { jsonMode: true });
+        const raw = await callGeminiApi(PRIMARY_MODEL, [{ text: prompt }], {
+          jsonMode: true,
+          responseSchema: MEETING_NOTES_STRUCTURED_SCHEMA,
+          highAccuracyAudio: true,
+          timeoutMs: 75000,
+          thinkingBudget: 1024,
+          maxOutputTokens: 8192,
+          temperature: 0.15
+        });
         const parsed = safeParseJsonFromAi(raw, 'object');
         if (currentSessionId === targetSessionId) {
-          document.getElementById('noteOverview').innerText = normalizeAiSummaryField(parsed.overview, 'overview', '無摘要');
-          document.getElementById('noteDecisions').innerText = normalizeAiSummaryField(parsed.decisions, 'decisions', '無特定決議');
-          document.getElementById('noteTodos').innerText = normalizeAiSummaryField(parsed.todos, 'todos', '無特定待辦事項');
+          let ovLines = [];
+          if (Array.isArray(parsed.overviewTopics) && parsed.overviewTopics.length > 0) {
+            parsed.overviewTopics.forEach((grp, idx) => {
+              const tName = String(grp?.topic || `議題 ${idx + 1}`).trim();
+              const pts = Array.isArray(grp?.points) ? grp.points.map(p => String(p || '').trim()).filter(Boolean) : [];
+              if (tName || pts.length > 0) {
+                ovLines.push(`【${tName}】`);
+                pts.forEach(p => ovLines.push(p.startsWith('•') ? p : `• ${p}`));
+                ovLines.push('');
+              }
+            });
+          }
+          const finalOv = ovLines.join('\n').trim() || normalizeAiSummaryField(parsed.overview, 'overview', '本場逐字稿未偵測到明確討論主題。');
+          const finalDec = normalizeAiSummaryField(parsed.decisions, 'decisions', '本場暫無明確拍板決議或具體數據。');
+          const finalTodos = normalizeAiSummaryField(parsed.todos, 'todos', '本場暫無明確後續待辦分工。');
+
+          setNoteBoxCleanText('noteOverview', finalOv);
+          setNoteBoxCleanText('noteDecisions', finalDec);
+          setNoteBoxCleanText('noteTodos', finalTodos);
           saveCurrentSessionToDB();
-          showToast('結構化會議紀錄已生成完成');
+          showToast('✓ 已完成全場去蕪存菁之 AI 結構化會議紀錄');
         }
       } catch (err) {
-        console.warn('Cloud summary fallback to local structured organizer:', err);
+        console.warn('Cloud meeting notes error:', err);
+        const reason = String(err && err.message ? err.message : err).slice(0, 100);
         if (currentSessionId === targetSessionId) {
-          const fallback = buildLocalSmartMeetingNotesForSegments(segsSnapshot, tpl);
-          document.getElementById('noteOverview').innerText = fallback.overview;
-          document.getElementById('noteDecisions').innerText = fallback.decisions;
-          document.getElementById('noteTodos').innerText = fallback.todos;
-          saveCurrentSessionToDB();
-          showToast('結構化會議紀錄已整理完成');
+          // 嚴格誠實原則：雲端 AI 失敗時絕不偷偷拿「前 8 句原始廢話剪貼」假冒 AI 會議紀錄欺騙使用者！
+          setNoteBoxCleanText(
+            'noteOverview',
+            `⚠️ 雲端 AI 會議紀錄生成未成功（原因：${reason}）。\n\n` +
+            `說明：若上方逐字稿仍在背景分析中，或免費版 API 每分鐘／每日額度暫滿（HTTP 429），會導致雲端摘要請求被擋下。請先停止或等待逐字稿分析結束、待 API 額度恢復後，再點一次右上角「生成會議紀錄」！（系統已停止使用舊版離線前 8 句對話充當摘要的錯誤做法。）`
+          );
+          if (!prevOv || prevOv.startsWith('正在通讀')) {
+            // keep decisions/todos untouched
+          }
+          showToast('AI 會議紀錄未生成成功：' + reason.slice(0, 48));
         }
       } finally {
         isGeneratingNotes = false;
-        if (genBtn) genBtn.disabled = false;
+        if (genBtn) {
+          genBtn.disabled = false;
+          genBtn.innerText = '生成會議紀錄';
+        }
       }
     }
 
@@ -14431,7 +14532,9 @@ ${dialog}
         return val !== DEFAULT_NOTE_OVERVIEW_EMPTY &&
           val !== DEFAULT_NOTE_OVERVIEW_ALT &&
           val !== DEFAULT_NOTE_OVERVIEW_SHORT &&
-          !val.startsWith('正在根據左側逐字稿');
+          !val.startsWith('正在根據左側逐字稿') &&
+          !val.startsWith('正在通讀全場') &&
+          !val.startsWith('⚠️ 雲端 AI 會議紀錄生成未成功');
       }
       if (defaultType === 'decisions') return val !== DEFAULT_NOTE_DECISIONS;
       if (defaultType === 'todos') return val !== DEFAULT_NOTE_TODOS;
@@ -14476,9 +14579,9 @@ ${dialog}
     function collectTargetSessionsForRag(scope, targetTag) {
       const liveTitle = (document.getElementById('meetingTitle')?.value || committedSessionTitle || '未命名會議紀錄').trim();
       const liveTag = (document.getElementById('sessionProjectTagInput')?.value ?? currentProjectTag ?? '').trim();
-      const liveOv = (document.getElementById('noteOverview')?.innerText || '').trim();
-      const liveDec = (document.getElementById('noteDecisions')?.innerText || '').trim();
-      const liveTd = (document.getElementById('noteTodos')?.innerText || '').trim();
+      const liveOv = getNoteBoxCleanText('noteOverview');
+      const liveDec = getNoteBoxCleanText('noteDecisions');
+      const liveTd = getNoteBoxCleanText('noteTodos');
       const liveHasContent = transcriptSegments.length > 0 ||
         isMeaningfulNoteField(liveOv, 'overview') ||
         isMeaningfulNoteField(liveDec, 'decisions') ||
@@ -15130,7 +15233,9 @@ ${retrieval.contextText}
         throw cancelErr;
       }
       const hasMedia = parts.some(p => p && p.inlineData);
-      const perAttemptTimeoutMs = opts.highAccuracyAudio ? 52000 : (hasMedia ? 38000 : 28000);
+      const perAttemptTimeoutMs = (typeof opts.timeoutMs === 'number' && opts.timeoutMs > 0)
+        ? opts.timeoutMs
+        : (opts.highAccuracyAudio ? 52000 : (hasMedia ? 38000 : 28000));
 
       if (opts.highAccuracyAudio) {
         await discoverAvailableGeminiModels(apiKey);
@@ -15529,9 +15634,9 @@ ${retrieval.contextText}
 
     function exportWordDocument() {
       const title = getTitle();
-      const ov = document.getElementById('noteOverview').innerText;
-      const dec = document.getElementById('noteDecisions').innerText;
-      const td = document.getElementById('noteTodos').innerText;
+      const ov = getNoteBoxCleanText('noteOverview');
+      const dec = getNoteBoxCleanText('noteDecisions');
+      const td = getNoteBoxCleanText('noteTodos');
 
       const rows = transcriptSegments.map(s => {
         const safeSnap = isSafeSnapshotUrl(s.snapshotUrl) ? escapeHtml(s.snapshotUrl) : '';
@@ -15617,9 +15722,9 @@ ${retrieval.contextText}
 
     async function copyNotesForLine() {
       const title = getTitle();
-      const ov = document.getElementById('noteOverview').innerText;
-      const dec = document.getElementById('noteDecisions').innerText;
-      const td = document.getElementById('noteTodos').innerText;
+      const ov = getNoteBoxCleanText('noteOverview');
+      const dec = getNoteBoxCleanText('noteDecisions');
+      const td = getNoteBoxCleanText('noteTodos');
       const fullText = `【${title}】\n\n一、會議摘要：\n${ov}\n\n二、重要決議：\n${dec}\n\n三、待辦事項：\n${td}`;
       const ok = await copyTextSafely(fullText);
       showToast(ok ? '已複製會議結論文字' : '瀏覽器限制自動複製，請手動選取右側文字複製');
@@ -15786,9 +15891,9 @@ ${retrieval.contextText}
     // 本地零額度心智圖轉換與 HTTP 429 保底引擎（零失敗紅字、支援摘要／決議／待辦／重點段落與時間碼解析）
     function buildLocalMindMapFromSession() {
       const rootTitle = getTitle() || '未命名會議紀錄';
-      const ovRaw = (document.getElementById('noteOverview')?.innerText || '').trim();
-      const decRaw = (document.getElementById('noteDecisions')?.innerText || '').trim();
-      const tdRaw = (document.getElementById('noteTodos')?.innerText || '').trim();
+      const ovRaw = getNoteBoxCleanText('noteOverview');
+      const decRaw = getNoteBoxCleanText('noteDecisions');
+      const tdRaw = getNoteBoxCleanText('noteTodos');
 
       let useOv = isMeaningfulNoteField(ovRaw, 'overview') ? ovRaw : '';
       let useDec = isMeaningfulNoteField(decRaw, 'decisions') ? decRaw : '';
@@ -15981,15 +16086,12 @@ ${retrieval.contextText}
       showToast('正在透過 AI 深度提煉多層級會議心智圖...');
 
       const segsSnapshot = transcriptSegments.map(s => ({ ...s }));
-      const ovText = isMeaningfulNoteField(document.getElementById('noteOverview')?.innerText, 'overview')
-        ? document.getElementById('noteOverview').innerText.trim()
-        : '';
-      const decText = isMeaningfulNoteField(document.getElementById('noteDecisions')?.innerText, 'decisions')
-        ? document.getElementById('noteDecisions').innerText.trim()
-        : '';
-      const tdText = isMeaningfulNoteField(document.getElementById('noteTodos')?.innerText, 'todos')
-        ? document.getElementById('noteTodos').innerText.trim()
-        : '';
+      const ovCandidate = getNoteBoxCleanText('noteOverview');
+      const decCandidate = getNoteBoxCleanText('noteDecisions');
+      const tdCandidate = getNoteBoxCleanText('noteTodos');
+      const ovText = isMeaningfulNoteField(ovCandidate, 'overview') ? ovCandidate : '';
+      const decText = isMeaningfulNoteField(decCandidate, 'decisions') ? decCandidate : '';
+      const tdText = isMeaningfulNoteField(tdCandidate, 'todos') ? tdCandidate : '';
 
       const segLines = segsSnapshot.map(s => {
         const secInt = Math.max(0, Math.floor(Number(s.startSec) || 0));
@@ -19640,9 +19742,9 @@ ${segLines || '(無逐字稿，請依上方現有摘要決議整理)'}`;
       const existingMeta = sessions.find(s => s.id === currentSessionId) || loadedSessionSnapshot || null;
       const domTitle = (document.getElementById('meetingTitle')?.value || '').trim() || committedSessionTitle || '未命名會議紀錄';
       const domTag = (document.getElementById('sessionProjectTagInput')?.value ?? currentProjectTag ?? '').trim();
-      const domOv = (document.getElementById('noteOverview')?.innerText || '').trim();
-      const domDec = (document.getElementById('noteDecisions')?.innerText || '').trim();
-      const domTd = (document.getElementById('noteTodos')?.innerText || '').trim();
+      const domOv = getNoteBoxCleanText('noteOverview');
+      const domDec = getNoteBoxCleanText('noteDecisions');
+      const domTd = getNoteBoxCleanText('noteTodos');
 
       return {
         id: currentSessionId,
@@ -19669,6 +19771,8 @@ ${segLines || '(無逐字稿，請依上方現有摘要決議整理)'}`;
         s === DEFAULT_NOTE_TODOS ||
         /^(無|無。|（無）|\(無\)|尚無摘要|尚無決議|尚無決議紀錄|尚無待辦|尚無待辦事項|無特定決議|無特定待辦事項)[。.]?$/.test(s) ||
         /^正在根據左側逐字稿/.test(s) ||
+        /^正在通讀全場/.test(s) ||
+        /^⚠️ 雲端 AI 會議紀錄生成未成功/.test(s) ||
         /^持續追蹤本場會議共\s*\d+\s*項發言紀錄與後續執行進度[。.]?$/.test(s) ||
         /^[一二三四壹貳參肆]、(會議核心摘要|重要決議|待辦事項)/.test(s)
       ) {
@@ -25927,9 +26031,11 @@ ${segLines || '(無逐字稿，請依上方現有摘要決議整理)'}`;
 
     // 若速覽對象正好是當前開啟的工作台場次，即時同步右側 #noteTodos
     if (targetSession.id === getHostCurrentSessionId()) {
-      const noteTodosEl = document.getElementById('noteTodos');
-      if (noteTodosEl) {
-        noteTodosEl.innerText = nextTodosText;
+      if (typeof window.setNoteBoxCleanText === 'function') {
+        window.setNoteBoxCleanText('noteTodos', nextTodosText);
+      } else {
+        const noteTodosEl = document.getElementById('noteTodos');
+        if (noteTodosEl) noteTodosEl.textContent = nextTodosText;
       }
     }
 
